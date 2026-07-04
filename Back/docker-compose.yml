@@ -1,0 +1,45 @@
+name: saas-inventario-dev # Nombre del proyecto Docker Compose (identifica este stack)
+
+services: # Sección donde se declaran todos los contenedores/servicios
+
+  postgres: # Nombre lógico del servicio dentro de Compose
+    image: postgres:15-alpine # Imagen oficial de PostgreSQL v15, variante Alpine (más liviana)
+    container_name: saas_postgres # Nombre fijo del contenedor en Docker (en lugar de uno auto-generado)
+    restart: unless-stopped # Reinicia automáticamente si falla, excepto si fue detenido manualmente
+    environment: # Variables de entorno que PostgreSQL usa al inicializarse
+      POSTGRES_DB: ${DB_NAME} # Nombre de la base de datos a crear (valor tomado del archivo .env)
+      POSTGRES_USER: ${DB_USER} # Usuario administrador de la BD (desde .env)
+      POSTGRES_PASSWORD: ${DB_PASSWORD} # Contraseña del usuario (desde .env)
+    volumes: # Monta volúmenes para persistir datos aunque el contenedor se elimine
+      - postgres_data:/var/lib/postgresql/data # Volumen nombrado → carpeta donde Postgres guarda los datos
+    ports:
+      - "5432:5432" # Expone el puerto 5432 del contenedor al puerto 5432 del host (formato host:contenedor)
+    healthcheck: # Define cómo Docker verifica si el servicio está saludable
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"] # Comando que comprueba si Postgres acepta conexiones
+      interval: 10s # Ejecuta el chequeo cada 10 segundos
+      timeout: 5s # Si el chequeo tarda más de 5s, se considera fallido
+      retries: 5 # Tras 5 fallos consecutivos, el contenedor se marca como "unhealthy"
+      start_period: 20s # Espera 20s antes de empezar a contar fallos (tiempo de arranque)
+
+  redis: # Nombre lógico del servicio de caché/cola
+    image: redis:7-alpine # Imagen oficial de Redis v7, variante Alpine (más liviana)
+    container_name: saas_redis # Nombre fijo del contenedor en Docker
+    restart: unless-stopped # Reinicia automáticamente si falla, excepto si fue detenido manualmente
+    command: redis-server --requirepass ${REDIS_PASSWORD} # Arranca Redis exigiendo contraseña (desde .env)
+    volumes: # Monta volúmenes para persistir datos
+      - redis_data:/data # Volumen nombrado → carpeta donde Redis guarda snapshots/AOF
+    ports:
+      - "6379:6379" # Expone el puerto 6379 del contenedor al puerto 6379 del host
+    healthcheck: # Define cómo Docker verifica si Redis está saludable
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"] # Envía un PING a Redis con la contraseña; espera "PONG"
+      interval: 10s # Ejecuta el chequeo cada 10 segundos
+      timeout: 5s # Si el chequeo tarda más de 5s, se considera fallido
+      retries: 5 # Tras 5 fallos consecutivos, el contenedor se marca como "unhealthy"
+
+volumes: # Declara los volúmenes nombrados que Docker administra (persisten entre reinicios)
+  postgres_data: # Volumen para los datos de PostgreSQL
+  redis_data: # Volumen para los datos de Redis
+
+networks: # Sección de redes
+  default: # Red por defecto que conecta todos los servicios entre sí
+    name: saas_network # Nombre personalizado de la red (en lugar del auto-generado)
