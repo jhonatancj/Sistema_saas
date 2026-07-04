@@ -1,0 +1,258 @@
+<div class="bldr">
+
+    <!-- ── Toolbar ────────────────────────────────────────────── -->
+    <div class="bldr__toolbar">
+        <!-- Toolbar en modo builder -->
+        @if (view() === 'builder') {
+        <button class="btn btn--ghost btn--sm" (click)="backToGrid()">← Volver</button>
+
+        <div class="bldr__fields">
+            <div class="field">
+                <input class="bldr__inp" placeholder="Nombre" [(ngModel)]="formName" (ngModelChange)="nameError.set(false)" />
+                @if (nameError()) { <span class="field__err">Campo requerido</span> }
+            </div>
+            <div class="field">
+                <input class="bldr__inp bldr__inp--slug" placeholder="slug_formulario" [(ngModel)]="formSlug"
+                    (ngModelChange)="slugError.set(false)" [disabled]="!isNew()" />
+                @if (slugError()) { <span class="field__err">Campo requerido</span> }
+            </div>
+
+            @if (activeForm()?.has_table !== undefined) {
+            <span class="bldr__badge" [class.bldr__badge--on]="activeForm()?.has_table">
+                Tabla: {{ activeForm()?.has_table ? '✅' : '❌' }}
+            </span>
+            <span class="bldr__badge" [class.bldr__badge--on]="activeForm()?.has_sp">
+                SP: {{ activeForm()?.has_sp ? '✅' : '❌' }}
+            </span>
+            }
+        </div>
+
+        <!-- Botón guardar en toolbar -->
+        <button class="btn btn--primary btn--sm" [disabled]="saving()" (click)="requestSave()">
+            {{ saving() ? 'Guardando...' : 'Guardar' }}
+        </button>
+
+        <div class="bldr__advanced">
+            <!-- Ícono: aplica a formularios públicos y de tenant por igual -->
+            <div class="bldr__adv-row">
+                <input class="bldr__inp" placeholder="Ícono FontAwesome (ej: fa-solid fa-box)" [(ngModel)]="formIcon" />
+                @if (formIcon()) { <i [class]="formIcon()" class="bldr__icon-preview"></i> }
+            </div>
+
+            <!-- Modo de visualización del registro: aplica a públicos y tenant por igual -->
+            <div class="bldr__adv-row">
+                <label class="bldr__radio">
+                    <input type="radio" name="displayMode" [checked]="displayMode()==='modal'" (change)="displayMode.set('modal')" />
+                    Modal
+                </label>
+                <label class="bldr__radio">
+                    <input type="radio" name="displayMode" [checked]="displayMode()==='inline'" (change)="displayMode.set('inline')" />
+                    En la vista (oculta la grid)
+                </label>
+                @if (displayMode() === 'modal') {
+                <input class="bldr__inp bldr__inp--num" type="number" min="320" max="1400" step="10"
+                    placeholder="Ancho (px), automático" [ngModel]="modalWidth()"
+                    (ngModelChange)="modalWidth.set($event || null)" />
+                }
+            </div>
+
+            <!-- Tabla/SP: siempre visible en modo público (genera contra 'public'); en
+                 modo tenant solo con un tenant elegido -->
+            @if (!isTenantMode() || selectedTenant()) {
+            <div class="bldr__adv-row">
+                <label class="bldr__radio">
+                    <input type="radio" name="tableMode" [checked]="tableMode()==='new'" (change)="tableMode.set('new')" />
+                    Nueva tabla
+                </label>
+                <label class="bldr__radio">
+                    <input type="radio" name="tableMode" [checked]="tableMode()==='existing'" (change)="tableMode.set('existing')" />
+                    Tabla existente
+                </label>
+                @if (tableMode() === 'existing') {
+                <ng-select class="bldr__select bldr__select--sm" [items]="existingTables()"
+                    [ngModel]="selectedExistingTable()" (ngModelChange)="selectedExistingTable.set($event)"
+                    placeholder="Elegir tabla" [searchable]="true" [clearable]="true" />
+                }
+            </div>
+            <div class="bldr__adv-row">
+                <label class="bldr__chk">
+                    <input type="checkbox" [checked]="recreateSp()" (change)="recreateSp.set(!recreateSp())" />
+                    <span class="bldr__chk-box"></span>
+                    Regenerar SP
+                </label>
+                <input class="bldr__inp" placeholder="Nombre del SP (opcional, ej: sp_mi_form)" [(ngModel)]="spNameOverride" />
+            </div>
+            }
+        </div>
+
+        } @else {
+        <div class="bldr__mode">
+            <button class="bldr__mode-btn" [class.bldr__mode-btn--active]="mode() === 'public'"
+                (click)="setMode('public')">Públicos</button>
+            <button class="bldr__mode-btn" [class.bldr__mode-btn--active]="mode() === 'tenant'"
+                (click)="setMode('tenant')">Por tenant</button>
+        </div>
+
+        @if (isTenantMode()) {
+        <ng-select class="bldr__select" [items]="tenants()" bindValue="slug" bindLabel="name"
+            [ngModel]="selectedTenant()" (ngModelChange)="onTenantChange($event)" placeholder="Seleccionar tenant"
+            [searchable]="true" [clearable]="true" />
+        }
+
+        <button class="btn btn--primary btn--sm" (click)="openNew()">+ Nuevo</button>
+        }
+    </div>
+
+    <!-- ── Grid ─────────────────────────────────────────────── -->
+    @if (view() === 'grid') {
+    <div class="bldr__grid-wrap">
+        <ag-grid-angular class="ag-theme-quartz" style="height: 500px; width: 100%" [rowData]="forms()"
+            [columnDefs]="colDefs" [defaultColDef]="defaultColDef" [loading]="loadingForms()" />
+    </div>
+    }
+
+    <!-- ── Builder ───────────────────────────────────────────── -->
+    @if (view() === 'builder') {
+    <!-- Tabs diseño / grid -->
+    <div class="bldr__builder-tabs">
+        <button class="bldr__tab" [class.bldr__tab--active]="builderTab() === 'design'"
+            (click)="builderTab.set('design')">
+            Diseño
+        </button>
+        <button class="bldr__tab" [class.bldr__tab--active]="builderTab() === 'grid'" (click)="switchToGrid()">
+            Grid
+        </button>
+        @if (!isTenantMode() || selectedTenant()) {
+        <button class="bldr__tab" [class.bldr__tab--active]="builderTab() === 'sql'"
+            (click)="builderTab.set('sql')">
+            SQL
+        </button>
+        }
+    </div>
+
+    <!-- Pestaña Diseño — se mantiene siempre montado (solo oculto por CSS) para
+         que el botón "Guardar" del toolbar (que dispara exportTrigger$) funcione
+         sin importar en qué pestaña esté parado el admin; si se desmonta con @if,
+         no hay suscriptor que reaccione al trigger y Guardar no hace nada. -->
+    <div class="bldr__canvas" [class.bldr__canvas--hidden]="builderTab() !== 'design'">
+        <d-builder [form]="schema()" [exportTrigger]="exportTrigger$" (ExportForm)="onExport($event)" />
+    </div>
+
+    <!-- Pestaña Grid -->
+    @if (builderTab() === 'grid') {
+    <div class="bldr__grid-builder">
+        <div class="bldr__grid-header">
+            <p class="bldr__grid-desc">
+                Configura las columnas que se mostrarán en la tabla de registros del formulario.
+            </p>
+            <button class="btn btn--primary btn--sm" [disabled]="savingGrid()" (click)="saveGridConfig()">
+                {{ savingGrid() ? 'Guardando...' : 'Guardar grid' }}
+            </button>
+        </div>
+
+        <div class="bldr__grid-add">
+            <p class="bldr__grid-desc">
+                ¿Agregaste un JOIN en la pestaña SQL con columnas que no están en el formulario?
+                Agregalas acá — la clave debe coincidir exactamente con el alias de esa columna en el SELECT.
+            </p>
+            <div class="bldr__grid-add-row">
+                <input class="bldr__inp" placeholder="Clave (ej: categoria_nombre)" [(ngModel)]="newCustomColKey" />
+                <input class="bldr__inp" placeholder="Etiqueta (opcional)" [(ngModel)]="newCustomColLabel" />
+                <select class="bldr__inp" [(ngModel)]="newCustomColType">
+                    @for (t of customColumnTypes; track t) {
+                    <option [value]="t">{{ t }}</option>
+                    }
+                </select>
+                <button class="btn btn--sm btn--ghost" [disabled]="!newCustomColKey.trim()" (click)="addCustomColumn()">
+                    + Agregar columna
+                </button>
+            </div>
+        </div>
+
+        @if (gridColumns().length === 0) {
+        <p class="bldr__grid-empty">
+            No hay columnas. Diseña el formulario en la pestaña "Diseño" o agregá una columna manual arriba.
+        </p>
+        } @else {
+        <div class="bldr__grid-table-wrap">
+            <table class="bldr__grid-table">
+                <thead>
+                    <tr>
+                        <th class="bldr__grid-th bldr__grid-th--visible">Visible</th>
+                        <th class="bldr__grid-th">Campo</th>
+                        <th class="bldr__grid-th">Tipo</th>
+                        <th class="bldr__grid-th">Etiqueta</th>
+                        <th class="bldr__grid-th bldr__grid-th--width">Ancho (px)</th>
+                        <th class="bldr__grid-th bldr__grid-th--order">Orden</th>
+                        <th class="bldr__grid-th"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (col of gridColumns(); track col.key) {
+                    <tr [class.bldr__grid-row--hidden]="!col.visible">
+                        <td class="bldr__grid-td--center">
+                            <label class="bldr__chk">
+                                <input type="checkbox" [checked]="col.visible" (change)="toggleVisible(col)" />
+                                <span class="bldr__chk-box"></span>
+                            </label>
+                        </td>
+                        <td>
+                            <code class="bldr__code">{{ col.key }}</code>
+                            @if (col.is_custom) { <span class="bldr__type-badge">manual</span> }
+                        </td>
+                        <td>
+                            @if (col.is_custom) {
+                            <select class="bldr__inp bldr__inp--sm" [(ngModel)]="col.field_type">
+                                @for (t of customColumnTypes; track t) {
+                                <option [value]="t">{{ t }}</option>
+                                }
+                            </select>
+                            } @else {
+                            <span class="bldr__type-badge">{{ col.field_type }}</span>
+                            }
+                        </td>
+                        <td>
+                            <input class="bldr__inp" [(ngModel)]="col.label" />
+                        </td>
+                        <td>
+                            <input class="bldr__inp bldr__inp--num" type="number" [(ngModel)]="col.width" min="60"
+                                max="600" />
+                        </td>
+                        <td class="bldr__grid-td--center">
+                            <div class="bldr__order-btns">
+                                <button class="bldr__order-btn" (click)="moveUp(col)"
+                                    [disabled]="gridColumns().indexOf(col) === 0">↑</button>
+                                <button class="bldr__order-btn" (click)="moveDown(col)"
+                                    [disabled]="gridColumns().indexOf(col) === gridColumns().length - 1">↓</button>
+                            </div>
+                        </td>
+                        <td class="bldr__grid-td--center">
+                            @if (col.is_custom) {
+                            <button class="bldr__order-btn" title="Quitar columna" (click)="removeCustomColumn(col)">✕</button>
+                            }
+                        </td>
+                    </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        }
+    </div>
+    }
+
+    <!-- Pestaña SQL -->
+    @if (builderTab() === 'sql') {
+    <div class="bldr__sql-panel">
+        <p class="bldr__grid-desc">
+            SQL SELECT custom para la grid (opcional). Se precarga con el equivalente a la
+            consulta que usa hoy el formulario (la tabla completa) — modificala para agregar
+            joins, columnas calculadas, etc., o dejala tal cual para conservar el comportamiento
+            actual. Debe ser un único SELECT de lectura e incluir una columna
+            <code class="bldr__code">id</code>.
+        </p>
+        <app-sql-editor [value]="gridQueryText()" (valueChange)="gridQueryText.set($event)" />
+    </div>
+    }
+    }
+
+</div>

@@ -1,0 +1,37 @@
+@use '../tools/mixins' as m;
+
+// Tabla HTML simple (no AG-Grid) — usada en listados chicos donde no hace
+// falta filtro/orden/paginación (usuarios de un tenant, sesiones, etc.). Para
+// grids grandes con paginación server-side, ver ag-grid + GridFormComponent.
+.tbl-wrap {
+  overflow-x: auto;
+  @include m.scrollbar-thin;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+
+  th {
+    padding: 0.625rem 1rem;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--topbar-border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--topbar-border);
+    color: var(--color-text);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+}

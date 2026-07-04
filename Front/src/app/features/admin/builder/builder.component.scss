@@ -1,0 +1,384 @@
+@use 'styles/tools/mixins' as m;
+
+// .btn viene de styles/components/ — ver CLAUDE.md → Reglas Frontend.
+
+.bldr {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--topbar-height));
+  overflow: hidden;
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  &__mode {
+    display: flex;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  &__mode-btn {
+    padding: 0.35rem 0.9rem;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: background var(--ease), color var(--ease);
+
+    &--active {
+      background: var(--primary);
+      color: #fff;
+    }
+  }
+
+  &__select {
+    min-width: 200px;
+
+    &--sm {
+      min-width: 160px;
+    }
+  }
+
+  &__advanced {
+    flex-basis: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    margin-top: 0.25rem;
+    border-top: 1px dashed #e5e7eb;
+  }
+
+  &__adv-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  &__radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  &__icon-preview {
+    font-size: 16px;
+    color: var(--primary);
+    width: 28px;
+    text-align: center;
+  }
+
+  &__fields {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+  }
+
+  &__inp {
+    @include m.input-base;
+    height: 32px;
+    font-size: 13px;
+    min-width: 180px;
+
+    &--slug {
+      min-width: 160px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    &--sm {
+      min-width: 100px;
+    }
+  }
+
+  &__badge {
+    font-size: 12px;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background: #f3f4f6;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  &__msg {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+
+    &--ok {
+      color: #15803d;
+    }
+
+    &--err {
+      color: #dc2626;
+    }
+  }
+
+  &__grid-wrap {
+    flex: 1;
+    overflow: hidden;
+    padding: 1.25rem;
+  }
+
+  &__canvas {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    &--hidden {
+      display: none;
+    }
+  }
+
+  &__builder-tabs {
+    display: flex;
+    border-bottom: 2px solid #e5e7eb;
+    background: #fff;
+    flex-shrink: 0;
+  }
+
+  &__tab {
+    padding: 0.6rem 1.5rem;
+    font-size: 13.5px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: color var(--ease), border-color var(--ease);
+
+    &--active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      font-weight: 500;
+    }
+  }
+
+  &__grid-builder {
+    flex: 1;
+    @include m.flex-col;
+    gap: 1rem;
+    padding: 1.25rem;
+    overflow-y: auto;
+    background: var(--color-bg);
+  }
+
+  &__sql-panel {
+    flex: 1;
+    @include m.flex-col;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    overflow-y: auto;
+    background: var(--color-bg);
+  }
+
+  &__grid-header {
+    @include m.flex-between;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+  }
+
+  &__grid-desc {
+    font-size: 13.5px;
+    color: var(--color-text-secondary);
+  }
+
+  &__grid-add {
+    @include m.flex-col;
+    gap: 0.6rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+  }
+
+  &__grid-add-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+
+    .bldr__inp {
+      flex: 1;
+      min-width: 140px;
+    }
+  }
+
+  &__grid-empty {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    text-align: center;
+    padding: 3rem 0;
+  }
+
+  &__grid-table-wrap {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  &__grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+
+    thead tr {
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #f3f4f6;
+      transition: background var(--ease);
+
+      &:hover {
+        background: #f9fafb;
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
+
+  &__grid-th {
+    padding: 0.65rem 1rem;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    &--visible,
+    &--order {
+      text-align: center;
+      width: 80px;
+    }
+
+    &--width {
+      width: 110px;
+    }
+  }
+
+  &__grid-td--center {
+    text-align: center;
+  }
+
+  &__grid-row--hidden {
+    opacity: 0.45;
+  }
+
+  td {
+    padding: 0.5rem 1rem;
+  }
+
+  &__inp--num {
+    width: 80px;
+    text-align: center;
+  }
+
+  &__code {
+    font-size: 12px;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    color: #6366f1;
+  }
+
+  &__type-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: #e0e7ff;
+    color: #4338ca;
+    border-radius: 99px;
+  }
+
+  &__order-btns {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  &__order-btn {
+    width: 26px;
+    height: 26px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--ease);
+
+    &:hover:not(:disabled) {
+      background: #f3f4f6;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  }
+
+  &__chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+
+    input {
+      display: none;
+    }
+
+    &-box {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #d1d5db;
+      border-radius: 4px;
+      background: #fff;
+      transition: background var(--ease), border-color var(--ease);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    input:checked+&-box {
+      background: var(--primary);
+      border-color: var(--primary);
+
+      &::after {
+        content: '✓';
+        color: #fff;
+        font-size: 10px;
+        line-height: 1;
+      }
+    }
+  }
+}

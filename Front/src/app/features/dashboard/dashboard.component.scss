@@ -1,0 +1,4 @@
+@use 'styles/tools/mixins' as m;
+
+.page-title    { @include m.page-title; }
+.page-subtitle { @include m.page-subtitle; }

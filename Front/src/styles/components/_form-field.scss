@@ -1,0 +1,22 @@
+@use '../tools/mixins' as m;
+
+// Campo de formulario (label + input + error inline) y grid de 2 columnas
+// para agrupar campos relacionados — usado en todos los modales/formularios
+// de la app. Error de validación siempre inline junto al campo, nunca
+// Toastr — ver docs/adr/007-notification-policy.md.
+.field {
+  @include m.flex-col;
+  gap: 0.3rem;
+
+  &__lbl { font-size: 13px; font-weight: 500; color: var(--color-text); }
+  &__inp { @include m.input-base; }
+  &__err { font-size: 12px; color: #ef4444; }
+  &__hint { font-size: 12px; color: var(--color-text-secondary); }
+}
+
+.grid {
+  display: grid;
+  gap: 0.875rem;
+
+  &--2 { grid-template-columns: 1fr 1fr; }
+}

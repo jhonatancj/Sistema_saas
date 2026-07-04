@@ -1,0 +1,44 @@
+@use 'styles/tools/mixins' as m;
+
+.admin-dashboard {
+  &__header {
+    margin-bottom: 1.75rem;
+  }
+
+  &__title {
+    @include m.page-title;
+  }
+
+  &__subtitle {
+    @include m.page-subtitle;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+}
+
+.stat-card {
+  background: #fff;
+  border: 1px solid var(--topbar-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+
+  &__value {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--color-text);
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 0.375rem;
+  }
+
+  &__label {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+}

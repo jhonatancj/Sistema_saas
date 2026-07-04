@@ -1,0 +1,66 @@
+<div class="pg">
+  <header class="pg__header">
+    <div>
+      <h1 class="pg__title">Super Admins</h1>
+      <p class="pg__sub">Gestiona los administradores del sistema</p>
+    </div>
+    <button class="btn btn--primary" (click)="openCreate()">+ Nuevo super admin</button>
+  </header>
+
+  @if (loading()) {
+  <p class="pg__loading">Cargando...</p>
+  } @else {
+  <div class="card ag-theme-quartz">
+    <ag-grid-angular class="ag-theme-quartz" style="height: 500px; width: 100%" [rowData]="admins()"
+      [columnDefs]="colDefs" [defaultColDef]="defaultColDef"  />
+  </div>
+  }
+</div>
+
+@if (showModal()) {
+<div class="backdrop" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h2 class="modal__title">Nuevo super admin</h2>
+      <button class="modal__close" (click)="closeModal()">&#x2715;</button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="modal__body">
+        <div class="grid grid--2">
+          <div class="field">
+            <label class="field__lbl">Nombre *</label>
+            <input class="field__inp" formControlName="firstName" type="text" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">Apellido *</label>
+            <input class="field__inp" formControlName="lastName" type="text" />
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__lbl">Email *</label>
+          <input class="field__inp" formControlName="email" type="email" />
+          @if (form.get('email')?.invalid && form.get('email')?.touched) {
+          <span class="field__err">Email requerido y válido</span>
+          }
+        </div>
+        <div class="field">
+          <label class="field__lbl">Contraseña * (mínimo 8 caracteres)</label>
+          <input class="field__inp" formControlName="password" type="password" autocomplete="new-password" />
+          @if (form.get('password')?.errors?.['minlength'] && form.get('password')?.touched) {
+          <span class="field__err">Mínimo 8 caracteres</span>
+          }
+        </div>
+
+      </div>
+
+      <div class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Creando…' : 'Crear super admin' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}

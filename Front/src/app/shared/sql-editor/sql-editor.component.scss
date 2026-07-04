@@ -1,0 +1,23 @@
+.sql-editor {
+  width: 100%;
+  min-height: 260px;
+  padding: 0.875rem 1rem;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: #1e2235;
+  color: #e2e8f0;
+  border: 1px solid #2a2f45;
+  border-radius: var(--radius);
+  resize: vertical;
+  tab-size: 2;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  &::placeholder {
+    color: #6b7280;
+  }
+}

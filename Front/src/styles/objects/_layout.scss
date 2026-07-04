@@ -1,0 +1,15 @@
+// Objetos de layout reutilizables (sin color, sin decoración)
+// Aquí van patrones estructurales: grid, flex wrappers, contenedores.
+
+.o-full-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.o-container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}

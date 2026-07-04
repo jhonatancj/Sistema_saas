@@ -1,0 +1,72 @@
+@use 'styles/tools/mixins' as m;
+
+// .pg, .tbl-wrap/.tbl (base), .btn, .field (base), .grid (base) vienen de
+// styles/components/ — ver CLAUDE.md → Reglas Frontend. Overrides puntuales
+// de este componente abajo (esta pantalla usa .card como panel con padding
+// por default, no como wrapper de tabla sin padding).
+
+.pg__header { margin-bottom: 0.25rem; }
+
+.card {
+  padding: 1.5rem;
+  @include m.flex-col;
+  gap: 1.25rem;
+
+  &--table {
+    padding: 0;
+
+    .card__head {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--topbar-border);
+    }
+  }
+
+  &__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  &__head {
+    @include m.flex-between;
+    gap: 1rem;
+  }
+}
+
+.grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.field {
+  &--full { grid-column: 1 / -1; }
+}
+
+.tbl-wrap {
+  margin: 0 -1.5rem;
+  padding: 0 1.5rem;
+}
+
+.ua-cell {
+  max-width: 200px;
+  @include m.truncate;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.alert {
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+
+  &--ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  &--err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--topbar-border);
+}

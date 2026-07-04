@@ -1,0 +1,26 @@
+<div class="grid-form__toolbar">
+  <input
+    class="field__inp search-inp"
+    type="search"
+    placeholder="Buscar..."
+    [ngModel]="search()"
+    (ngModelChange)="onSearchInput($event)"
+  />
+</div>
+
+<ag-grid-angular
+  class="ag-theme-quartz grid-form"
+  rowModelType="infinite"
+  [datasource]="datasource()"
+  [cacheBlockSize]="cacheBlockSize()"
+  [pagination]="true"
+  [paginationPageSize]="cacheBlockSize()"
+  [paginationPageSizeSelector]="paginationPageSizeSelector"
+
+  [columnDefs]="allColDefs()"
+  [defaultColDef]="defaultColDef()"
+  (gridReady)="onGridReady($event)"
+  (modelUpdated)="onModelUpdated()"
+  (gridSizeChanged)="onGridSizeChanged($event)"
+  style="height: 500px; width: 100%"
+/>

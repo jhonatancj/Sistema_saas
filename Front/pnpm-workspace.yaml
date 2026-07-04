@@ -1,0 +1,10 @@
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true
+minimumReleaseAgeExclude:
+  - '@jhonatancj/dforms@1.0.2'
+  - '@jhonatancj/dforms@1.1.0'
+  - '@jhonatancj/dforms@1.1.1'
+  - '@jhonatancj/dforms@1.1.4'

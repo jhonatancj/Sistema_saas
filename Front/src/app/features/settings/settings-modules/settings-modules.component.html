@@ -1,0 +1,174 @@
+<div class="pg">
+  <header class="pg__header">
+    <div>
+      <h1 class="pg__title">Módulos</h1>
+      <p class="pg__sub">Asigna formularios y permisos por rol</p>
+    </div>
+  </header>
+
+  <div class="mods">
+
+    <!-- Panel izquierdo -->
+    <aside class="mods__side">
+      <div class="mods__side-header">
+        <span class="mods__side-title">Módulos</span>
+        <button class="btn btn--sm btn--primary" (click)="showCreate.set(true)">+ Nuevo</button>
+      </div>
+
+      @if (showCreate()) {
+        <div class="mods__create">
+          <input class="field__inp" placeholder="Nombre" [(ngModel)]="newName" />
+          <input class="field__inp" placeholder="Código (ej: compras)" [(ngModel)]="newCode" />
+          <div class="mods__icon-row">
+            <input class="field__inp" placeholder="Ícono FontAwesome (ej: fa-solid fa-box)" [(ngModel)]="newIcon" />
+            @if (newIcon) { <i [class]="newIcon" class="mods__icon-preview"></i> }
+          </div>
+          <div class="mods__create-actions">
+            <button class="btn btn--sm btn--primary" (click)="createModule()">Crear</button>
+            <button class="btn btn--sm btn--ghost" (click)="showCreate.set(false)">Cancelar</button>
+          </div>
+        </div>
+      }
+
+      <ul class="mods__list">
+        @for (m of modules(); track m.id) {
+          <li class="mods__item"
+              [class.mods__item--active]="selected()?.id === m.id"
+              (click)="selectModule(m)">
+            <span class="mods__item-main">
+              <i [class]="m.icon || 'fa-solid fa-cube'" class="mods__item-icon"></i>
+              <span class="mods__item-name">{{ m.name }}</span>
+            </span>
+            @if (m.is_custom) {
+              <span class="mods__item-tag">custom</span>
+            }
+          </li>
+        }
+      </ul>
+    </aside>
+
+    <!-- Panel derecho -->
+    <section class="mods__main">
+      @if (!selected()) {
+        <p class="pg__empty">Selecciona un módulo para configurarlo</p>
+
+      } @else {
+        <div class="mods__panel">
+
+          <div class="mods__tabs">
+            <button class="mods__tab" [class.mods__tab--active]="activeTab() === 'forms'"
+                    (click)="activeTab.set('forms')">Formularios</button>
+            <button class="mods__tab" [class.mods__tab--active]="activeTab() === 'roles'"
+                    (click)="activeTab.set('roles')">Permisos</button>
+            <button class="mods__tab" [class.mods__tab--active]="activeTab() === 'edit'"
+                    (click)="activeTab.set('edit')">Editar módulo</button>
+          </div>
+
+          <!-- Tab Formularios -->
+          @if (activeTab() === 'forms') {
+            <div class="mods__section">
+              <p class="mods__section-desc">
+                Formularios asignados a <strong>{{ selected()!.name }}</strong>
+              </p>
+              <ng-select
+                [items]="availableForms()"
+                bindValue="slug"
+                bindLabel="name"
+                [multiple]="true"
+                [ngModel]="selectedForms()"
+                (ngModelChange)="selectedForms.set($event)"
+                placeholder="Seleccionar formularios"
+                [searchable]="true"
+                [closeOnSelect]="false"
+              />
+              <div class="mods__footer">
+                <button class="btn btn--primary" [disabled]="saving()" (click)="saveForms()">
+                  {{ saving() ? 'Guardando...' : 'Guardar formularios' }}
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Tab Permisos -->
+          @if (activeTab() === 'roles') {
+            <div class="mods__section">
+              <p class="mods__section-desc">Permisos por rol para <strong>{{ selected()!.name }}</strong></p>
+
+              <div class="mods__matrix-wrap">
+                <table class="mods__matrix">
+                  <thead>
+                    <tr>
+                      <th class="mods__matrix-role">Rol</th>
+                      @for (p of PERMISSIONS; track p.key) {
+                        <th>{{ p.label }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (role of roles(); track role.role_code) {
+                      <tr>
+                        <td class="mods__matrix-role">{{ role.name }}</td>
+                        @for (p of PERMISSIONS; track p.key) {
+                          <td>
+                            <label class="mods__toggle">
+                              <input type="checkbox"
+                                     [checked]="role[p.key]"
+                                     (change)="togglePermission(role, p.key)" />
+                              <span class="mods__toggle-track"></span>
+                            </label>
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="mods__footer">
+                <button class="btn btn--primary" [disabled]="saving()" (click)="saveRoles()">
+                  {{ saving() ? 'Guardando...' : 'Guardar permisos' }}
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Tab Editar módulo -->
+          @if (activeTab() === 'edit') {
+            <div class="mods__section">
+              <div class="field">
+                <label class="field__lbl">Nombre</label>
+                <input class="field__inp" [(ngModel)]="editName" />
+              </div>
+              <div class="field">
+                <label class="field__lbl">Descripción</label>
+                <input class="field__inp" [(ngModel)]="editDescription" />
+              </div>
+              <div class="mods__icon-row">
+                <input class="field__inp" placeholder="Ícono FontAwesome" [(ngModel)]="editIcon" />
+                @if (editIcon) { <i [class]="editIcon" class="mods__icon-preview"></i> }
+              </div>
+              <div class="field">
+                <label class="field__lbl">Orden en el sidebar</label>
+                <input class="field__inp" type="number" [(ngModel)]="editSortOrder" />
+              </div>
+              <label class="mods__toggle-row">
+                <label class="mods__toggle">
+                  <input type="checkbox" [checked]="editIsActive" (change)="editIsActive = !editIsActive" />
+                  <span class="mods__toggle-track"></span>
+                </label>
+                Activo (visible en el sidebar)
+              </label>
+              <div class="mods__footer">
+                <button class="btn btn--primary" [disabled]="savingEdit()" (click)="saveEdit()">
+                  {{ savingEdit() ? 'Guardando...' : 'Guardar cambios' }}
+                </button>
+              </div>
+            </div>
+          }
+
+        </div>
+      }
+    </section>
+
+  </div>
+</div>

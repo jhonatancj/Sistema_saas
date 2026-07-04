@@ -1,0 +1,71 @@
+# ── Node / npm / pnpm ────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── NestJS (Back) ────────────────────────────────────────
+Back/**/dist/
+Back/**/build/
+*.js.map
+
+# ── Angular (Front) ──────────────────────────────────────
+Front/dist/
+Front/tmp/
+Front/out-tsc/
+Front/.angular/cache/
+Front/bazel-out/
+*.tsbuildinfo
+*.ngfactory.ts
+*.ngsummary.json
+.sass-cache/
+connect.lock
+libpeerconnection.log
+testem.log
+typings/
+__screenshots__/
+
+# ── Tests / coverage ─────────────────────────────────────
+coverage/
+.nyc_output/
+test-results/
+
+# ── Variables de entorno ─────────────────────────────────
+# .env
+# .env.local
+# .env.*.local
+# !.env.example
+
+# ── Docker ───────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── IDEs / editores ──────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.history/*
+*.swp
+*.swo
+
+# ── Claude / CodeGraph (config local, no compartir) ──────
+.claude/settings.local.json
+.codegraph/
+
+# ── macOS / Windows ──────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ─────────────────────────────────────────────────
+*.log
+logs/

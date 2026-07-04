@@ -1,0 +1,43 @@
+<div class="login">
+  <div class="login__card">
+
+    <div class="login__logo">
+      <svg viewBox="0 0 24 24" fill="var(--primary)" width="34" height="34">
+        <rect x="3" y="3" width="7" height="7" rx="2"/>
+        <rect x="14" y="3" width="7" height="7" rx="2"/>
+        <rect x="3" y="14" width="7" height="7" rx="2"/>
+        <rect x="14" y="14" width="7" height="7" rx="2"/>
+      </svg>
+      <h1 class="login__title">InventarioPro</h1>
+    </div>
+    <p class="login__subtitle">Inicia sesión en tu cuenta</p>
+
+    <form class="login__form" (ngSubmit)="login()">
+      <div class="login__field">
+        <label class="login__label" for="email">Email</label>
+        <input class="login__input" id="email" type="email"
+               [(ngModel)]="email" name="email"
+               placeholder="usuario@empresa.com" autocomplete="email" required/>
+      </div>
+
+      <div class="login__field">
+        <label class="login__label" for="password">Contraseña</label>
+        <input class="login__input" id="password" type="password"
+               [(ngModel)]="password" name="password"
+               placeholder="••••••••" autocomplete="current-password" required/>
+      </div>
+
+      @if (error()) {
+        <p class="login__error">{{ error() }}</p>
+      }
+
+      <button class="login__btn" type="submit" [disabled]="loading()">
+        @if (loading()) { Ingresando... } @else { Ingresar }
+      </button>
+    </form>
+
+    <p class="login__hint">
+      Demo: <code>admin&#64;demo.com</code> / <code>admin</code>
+    </p>
+  </div>
+</div>

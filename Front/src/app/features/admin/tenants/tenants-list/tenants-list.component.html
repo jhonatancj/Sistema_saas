@@ -1,0 +1,97 @@
+<div class="pg">
+  <header class="pg__header">
+    <div>
+      <h1 class="pg__title">Gestión de Tenants</h1>
+      <p class="pg__sub">Administra los tenants del sistema</p>
+    </div>
+    <button class="btn btn--primary" (click)="openCreate()">+ Nuevo tenant</button>
+  </header>
+
+  @if (loading()) {
+    <p class="pg__loading">Cargando...</p>
+  } @else {
+    <div class="card">
+      <ag-grid-angular
+        class="ag-theme-quartz"
+        style="height: 500px; width: 100%"
+        [rowData]="tenants()"
+        [columnDefs]="colDefs"
+        [defaultColDef]="defaultColDef"
+      />
+    </div>
+  }
+</div>
+
+@if (showModal()) {
+<div class="backdrop" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h2 class="modal__title">Nuevo tenant</h2>
+      <button class="modal__close" (click)="closeModal()">&#x2715;</button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="modal__body">
+        <div class="grid grid--2">
+          <div class="field">
+            <label class="field__lbl">Nombre *</label>
+            <input class="field__inp" formControlName="name" type="text" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">Slug *</label>
+            <input class="field__inp" formControlName="slug" type="text" placeholder="acme-corp" />
+            @if (form.get('slug')?.invalid && form.get('slug')?.touched) {
+            <span class="field__err">Mínimo 4 caracteres, minúsculas/números/guiones</span>
+            }
+          </div>
+        </div>
+        <div class="grid grid--2">
+          <div class="field">
+            <label class="field__lbl">Email de contacto</label>
+            <input class="field__inp" formControlName="contactEmail" type="email" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">Máx. usuarios</label>
+            <input class="field__inp" formControlName="maxUsers" type="number" min="1" />
+          </div>
+        </div>
+
+        <hr />
+        <p class="field__lbl">Usuario administrador inicial</p>
+
+        <div class="grid grid--2">
+          <div class="field">
+            <label class="field__lbl">Nombre *</label>
+            <input class="field__inp" formControlName="adminFirstName" type="text" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">Apellido *</label>
+            <input class="field__inp" formControlName="adminLastName" type="text" />
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__lbl">Email *</label>
+          <input class="field__inp" formControlName="adminEmail" type="email" />
+          @if (form.get('adminEmail')?.invalid && form.get('adminEmail')?.touched) {
+          <span class="field__err">Email requerido y válido</span>
+          }
+        </div>
+        <div class="field">
+          <label class="field__lbl">Contraseña * (mínimo 8 caracteres)</label>
+          <input class="field__inp" formControlName="adminPassword" type="password" autocomplete="new-password" />
+          @if (form.get('adminPassword')?.errors?.['minlength'] && form.get('adminPassword')?.touched) {
+          <span class="field__err">Mínimo 8 caracteres</span>
+          }
+        </div>
+      </div>
+
+      <div class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Creando…' : 'Crear tenant' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}

@@ -1,0 +1,245 @@
+@use 'styles/tools/mixins' as m;
+
+// .pg, .field (base), .btn vienen de styles/components/ — ver CLAUDE.md →
+// Reglas Frontend.
+
+.mods {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+
+  &__side {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  &__side-header {
+    @include m.flex-between;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  &__side-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  &__create {
+    @include m.flex-col;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
+
+  &__create-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem 0;
+  }
+
+  &__item {
+    @include m.flex-between;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: var(--color-text);
+    border-radius: 0;
+    transition: background var(--ease);
+
+    &:hover { background: #f3f4f6; }
+
+    &--active {
+      background: #eff2ff;
+      color: var(--primary);
+      font-weight: 500;
+    }
+  }
+
+  &__item-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 99px;
+    background: #fef2f2;
+    color: #dc2626;
+    font-weight: 500;
+  }
+
+  &__item-main {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__item-name {
+    @include m.flex-col;
+    line-height: 1.35;
+  }
+
+  &__item-sub {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-weight: 400;
+  }
+
+  &__item-icon {
+    width: 16px;
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+
+  &__icon-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__icon-preview {
+    font-size: 16px;
+    color: var(--primary);
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  &__main {
+    @include m.flex-col;
+    gap: 1rem;
+  }
+
+  &__panel {
+    @include m.flex-col;
+    gap: 1rem;
+  }
+
+  &__tabs {
+    display: flex;
+    border-bottom: 2px solid #e5e7eb;
+    gap: 0;
+  }
+
+  &__tab {
+    padding: 0.6rem 1.25rem;
+    font-size: 13.5px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color var(--ease), border-color var(--ease);
+
+    &--active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      font-weight: 500;
+    }
+  }
+
+  &__section {
+    @include m.flex-col;
+    gap: 1rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+  }
+
+  &__section-desc {
+    font-size: 13.5px;
+    color: var(--color-text-secondary);
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  &__matrix-wrap {
+    overflow-x: auto;
+  }
+
+  &__matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+
+    th, td {
+      padding: 0.65rem 1rem;
+      text-align: center;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    th {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: #f9fafb;
+    }
+
+    tbody tr:hover { background: #f9fafb; }
+  }
+
+  &__matrix-role {
+    text-align: left !important;
+    font-weight: 500;
+    color: var(--color-text);
+    min-width: 130px;
+  }
+
+  &__toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 13.5px;
+    color: var(--color-text);
+  }
+
+  // Toggle switch
+  &__toggle {
+    display: inline-flex;
+    cursor: pointer;
+
+    input { display: none; }
+
+    &-track {
+      width: 36px;
+      height: 20px;
+      background: #d1d5db;
+      border-radius: 99px;
+      position: relative;
+      transition: background var(--ease);
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform var(--ease);
+      }
+    }
+
+    input:checked + &-track {
+      background: var(--primary);
+      &::after { transform: translateX(16px); }
+    }
+  }
+}

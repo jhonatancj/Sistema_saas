@@ -1,0 +1,174 @@
+<div class="pg">
+  <header class="pg__header">
+    <div>
+      <h1 class="pg__title">Detalle del Tenant</h1>
+      <p class="pg__sub">ID: {{ tenantId }}</p>
+    </div>
+    <a class="btn btn--ghost" routerLink="/admin/tenants">← Volver</a>
+  </header>
+
+  @if (loading()) {
+    <p class="pg__loading">Cargando...</p>
+  } @else {
+
+    @if (tenant(); as t) {
+      <!-- Info del tenant -->
+      <div class="card info-card">
+        <div class="info-row">
+          <span class="info-row__label">Nombre</span>
+          <span class="info-row__value">{{ t.name }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Slug</span>
+          <span class="info-row__value mono">{{ t.slug }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Estado</span>
+          <span class="badge badge--{{ t.status }}">{{ statusLabel(t.status) }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-row__label">Max usuarios</span>
+          <span class="info-row__value">{{ t.max_users }}</span>
+        </div>
+        @if (t.contactEmail) {
+          <div class="info-row">
+            <span class="info-row__label">Email contacto</span>
+            <span class="info-row__value">{{ t.contactEmail }}</span>
+          </div>
+        }
+        <div class="info-row">
+          <span class="info-row__label">Creado</span>
+          <span class="info-row__value">{{ formatDate(t.createdAt) }}</span>
+        </div>
+      </div>
+
+      <!-- Formulario de edición -->
+      <form class="card" [formGroup]="form" (ngSubmit)="save()">
+        <h2 class="card__title">Modificar tenant</h2>
+
+        <div class="grid">
+          <div class="field">
+            <label class="field__lbl">Estado *</label>
+            <select class="field__inp" formControlName="status">
+              @for (s of STATUS_OPTIONS; track s) {
+                <option [value]="s">{{ statusLabel(s) }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__lbl">Máx. usuarios *</label>
+            <input class="field__inp" formControlName="maxUsers" type="number" min="1" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">Fin de prueba</label>
+            <input class="field__inp" formControlName="trialEndsAt" type="date" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn--primary" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
+        </div>
+      </form>
+    }
+
+    <!-- Módulos -->
+    <div class="card">
+      <h2 class="card__title">Módulos</h2>
+      <p class="field__hint">
+        Copia los módulos y formularios activos del catálogo público
+        (<a routerLink="/admin/modules">gestionar catálogo</a>) hacia este tenant.
+      </p>
+      <div class="actions">
+        <button class="btn btn--primary" [disabled]="syncingModules()" (click)="syncModules()">
+          {{ syncingModules() ? 'Sincronizando…' : 'Sincronizar módulos del catálogo' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Acceso a formularios del catálogo público -->
+    <div class="card">
+      <h2 class="card__title">Acceso a formularios del catálogo</h2>
+
+      <div class="field">
+        <label class="field__lbl">Modo</label>
+        <select class="field__inp" [ngModel]="formAccessMode()" (ngModelChange)="formAccessMode.set($event)">
+          <option value="all">Sin restricción (todos los formularios del catálogo)</option>
+          <option value="restricted">Restringido (solo los seleccionados)</option>
+        </select>
+      </div>
+
+      @if (formAccessMode() === 'restricted') {
+        <div class="field">
+          <label class="field__lbl">
+            Formularios permitidos ({{ selectedAllowedSlugs().length }} seleccionados)
+          </label>
+          <div class="form-access-grid-wrap">
+            <ag-grid-angular
+              class="ag-theme-quartz"
+              style="height: 320px; width: 100%"
+              [rowData]="catalogForms()"
+              [columnDefs]="formAccessColDefs"
+              [defaultColDef]="formAccessDefaultColDef"
+              [rowSelection]="formAccessRowSelection"
+              [getRowId]="getFormAccessRowId"
+              (gridReady)="onFormAccessGridReady($event)"
+              (rowDataUpdated)="onFormAccessRowDataUpdated()"
+              (selectionChanged)="onFormAccessSelectionChanged()"
+            />
+          </div>
+          <p class="field__hint">
+            Los formularios propios del tenant (no publicados en el catálogo) nunca se restringen.
+          </p>
+        </div>
+      }
+
+      <div class="actions">
+        <button class="btn btn--primary" [disabled]="savingFormAccess()" (click)="saveFormAccess()">
+          {{ savingFormAccess() ? 'Guardando…' : 'Guardar acceso' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Usuarios del tenant -->
+    <div class="card">
+      <h2 class="card__title">Usuarios ({{ users().length }})</h2>
+
+      @if (users().length === 0) {
+        <p class="empty">Este tenant no tiene usuarios.</p>
+      } @else {
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Roles</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of users(); track u.id) {
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-cell__name">{{ u.firstName }} {{ u.lastName }}</div>
+                      <div class="user-cell__email">{{ u.email }}</div>
+                    </div>
+                  </td>
+                  <td><span class="tag">{{ u.roles.join(', ') || '—' }}</span></td>
+                  <td>
+                    <span class="badge" [class.badge--ok]="u.isActive" [class.badge--off]="!u.isActive">
+                      {{ u.isActive ? 'Activo' : 'Inactivo' }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+  }
+</div>

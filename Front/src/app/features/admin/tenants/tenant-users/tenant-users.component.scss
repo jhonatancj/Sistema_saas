@@ -1,0 +1,49 @@
+@use 'styles/tools/mixins' as m;
+
+.tenant-users {
+  &__header {
+    @include m.flex-between;
+    margin-bottom: 1.75rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    @include m.page-title;
+  }
+
+  &__subtitle {
+    @include m.page-subtitle;
+    font-family: monospace;
+    font-size: 12px;
+  }
+
+  &__back {
+    font-size: 13px;
+    color: var(--primary);
+    white-space: nowrap;
+    transition: opacity var(--ease);
+
+    &:hover { opacity: 0.75; }
+  }
+
+  &__empty {
+    @include m.flex-col;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 3rem;
+    background: #fff;
+    border: 1px solid var(--topbar-border);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-secondary);
+    text-align: center;
+
+    svg { opacity: 0.4; }
+
+    p {
+      font-size: 14px;
+      margin: 0;
+    }
+  }
+}

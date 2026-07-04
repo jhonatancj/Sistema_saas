@@ -1,0 +1,35 @@
+@use '../tools/mixins' as m;
+
+// Botones — usado en todas las pantallas con acciones de crear/cancelar/
+// confirmar. El color sale siempre de var(--primary) vía m.btn-primary,
+// nunca hardcodeado — ver CLAUDE.md → Reglas Frontend.
+.btn {
+  @include m.btn-primary;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+
+  &--ghost {
+    @include m.btn-outline;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  &--danger {
+    @include m.btn-primary;
+    background: #ef4444;
+    &:hover:not(:disabled) { background: #dc2626; }
+  }
+
+  &--danger-ghost {
+    @include m.btn-outline;
+    cursor: pointer;
+    font-family: inherit;
+    color: #ef4444;
+    border-color: #fca5a5;
+    &:hover { background: #fef2f2; }
+  }
+
+  &--sm { padding: 0.3rem 0.75rem; font-size: 12.5px; }
+}

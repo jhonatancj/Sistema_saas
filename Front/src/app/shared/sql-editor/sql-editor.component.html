@@ -1,0 +1,8 @@
+<textarea
+  class="sql-editor"
+  spellcheck="false"
+  rows="14"
+  [ngModel]="value()"
+  (ngModelChange)="valueChange.emit($event)"
+  placeholder="SELECT t.*, r.nombre AS relacion FROM tbl_x t LEFT JOIN tbl_y r ON r.id = t.y_id WHERE t.deleted_at IS NULL"
+></textarea>

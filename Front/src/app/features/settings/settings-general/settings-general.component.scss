@@ -1,0 +1,63 @@
+@use 'styles/tools/mixins' as m;
+
+// .pg (base), .btn, .field (base), .grid (base) vienen de
+// styles/components/ — ver CLAUDE.md → Reglas Frontend. Overrides puntuales
+// de este componente abajo.
+
+.pg__header { margin-bottom: 0.25rem; }
+
+.card {
+  padding: 1.5rem;
+  @include m.flex-col;
+  gap: 1.5rem;
+}
+
+.section {
+  &:not(:last-of-type) {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--topbar-border);
+  }
+
+  &__title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-secondary);
+    margin-bottom: 1rem;
+  }
+}
+
+.grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.field {
+  &--full { grid-column: 1 / -1; }
+}
+
+.alert {
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+
+  &--ok {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+
+  &--err {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--topbar-border);
+}

@@ -1,0 +1,62 @@
+
+// ── ng-select global overrides ────────────────────────────────────────────────
+// El dropdown panel se inserta en <body>, fuera del componente,
+// por eso los overrides DEBEN ser globales.
+.ng-select.ng-select-single .ng-select-container {
+    height: 34px;
+}
+.ng-select .ng-select-container {
+  border-color: #d1d5db;
+  border-radius: 6px;
+  min-height: 34px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ng-select.ng-select-focused:not(.ng-select-opened) > .ng-select-container,
+.ng-select.ng-select-opened > .ng-select-container {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  outline: none;
+}
+
+// Ocultar placeholder cuando ya hay un valor seleccionado
+.ng-select .ng-has-value .ng-placeholder {
+  display: none !important;
+}
+
+// Panel dropdown: z-index alto para que aparezca sobre cualquier card
+.ng-dropdown-panel {
+  z-index: 1050 !important;
+  background-color: #fff !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+  color: #374151;
+}
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-marked {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected {
+  background-color: #ede9fe !important;
+  color: #6366f1 !important;
+  font-weight: 500;
+}
+
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected.ng-option-marked {
+  background-color: #ddd6fe !important;
+}

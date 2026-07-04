@@ -1,0 +1,27 @@
+// ITCSS — Global entry point
+// Las capas se importan en orden de especificidad creciente.
+// Los componentes solo importan 'tools/mixins' cuando los necesitan.
+
+// 1. Settings — variables CSS y SCSS
+@use 'styles/settings';
+
+// 2. Generic — reset y normalize
+@use 'styles/generic';
+
+// 3. Elements — estilos base de HTML
+@use 'styles/elements';
+
+// 4. Objects — patrones de layout sin decoración
+@use 'styles/objects';
+
+// 5. Components — patrones de UI reutilizables entre features (botón, modal,
+// wrapper de página, card, campo de formulario, badge, tabla simple). Antes
+// de duplicar uno de estos en un componente nuevo, usar la clase de acá —
+// ver docs/known-bugs.md sobre el bug real que causó tenerlos duplicados.
+@use 'styles/components';
+
+// 6. Utilities — clases de utilidad
+@use 'styles/utilities';
+
+// Tools (mixins/functions) no generan CSS por sí solos;
+// cada componente los importa directamente con @use 'styles/tools/mixins'.

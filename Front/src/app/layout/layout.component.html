@@ -1,0 +1,12 @@
+<div class="layout">
+  @if (layout.mobileOpen()) {
+    <div class="layout__overlay" (click)="layout.closeMobile()" aria-hidden="true"></div>
+  }
+  <app-sidebar />
+  <div class="layout__main">
+    <app-topbar />
+    <main class="layout__content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

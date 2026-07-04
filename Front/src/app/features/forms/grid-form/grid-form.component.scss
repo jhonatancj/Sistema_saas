@@ -1,0 +1,17 @@
+// .field__inp viene de styles/components/ — ver CLAUDE.md → Reglas Frontend.
+
+.grid-form__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 0.75rem 5px;
+  background-color: var(--color-bg);
+}
+
+.search-inp {
+  width: 220px;
+}
+
+.grid-form {
+  display: block;
+  width: 100%;
+}

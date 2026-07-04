@@ -1,0 +1,42 @@
+@use 'styles/tools/mixins' as m;
+
+.layout {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+
+  &__overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 150;
+
+    @include m.lg {
+      display: none;
+    }
+  }
+
+  &__main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--color-bg);
+    padding: 1rem;
+
+    @include m.md {
+      padding: 1.25rem;
+    }
+
+    @include m.lg {
+      padding: 1.5rem;
+    }
+  }
+}

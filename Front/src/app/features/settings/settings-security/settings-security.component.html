@@ -1,0 +1,63 @@
+<div class="pg">
+  <header class="pg__header">
+    <h1 class="pg__title">Seguridad</h1>
+    <p class="pg__sub">Contraseña y sesiones activas</p>
+  </header>
+
+  <!-- Cambio de contraseña -->
+  <form class="card" [formGroup]="pwForm" (ngSubmit)="changePassword()">
+    <h2 class="card__title">Cambiar contraseña</h2>
+
+    <div class="grid">
+      <div class="field field--full">
+        <label class="field__lbl">Contraseña actual *</label>
+        <input class="field__inp" formControlName="currentPassword" type="password" autocomplete="current-password" />
+        @if (pwForm.get('currentPassword')?.invalid && pwForm.get('currentPassword')?.touched) {
+          <span class="field__err">Campo requerido</span>
+        }
+      </div>
+      <div class="field">
+        <label class="field__lbl">Nueva contraseña *</label>
+        <input class="field__inp" formControlName="newPassword" type="password" autocomplete="new-password" />
+        @if (pwForm.get('newPassword')?.errors?.['minlength'] && pwForm.get('newPassword')?.touched) {
+          <span class="field__err">Mínimo 8 caracteres</span>
+        }
+      </div>
+      <div class="field">
+        <label class="field__lbl">Confirmar contraseña *</label>
+        <input class="field__inp" formControlName="confirmPassword" type="password" autocomplete="new-password" />
+        @if (hasMismatch) {
+          <span class="field__err">Las contraseñas no coinciden</span>
+        }
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn--primary" type="submit" [disabled]="pwSaving()">
+        {{ pwSaving() ? 'Guardando…' : 'Actualizar contraseña' }}
+      </button>
+    </div>
+  </form>
+
+  <!-- Sesiones activas (solo tenant — no hay endpoint de revocación para super admin todavía) -->
+  @if (!isAdmin()) {
+  <div class="card card--table">
+    <div class="card__head">
+      <h2 class="card__title">Sesiones activas</h2>
+      <button class="btn btn--sm btn--danger-ghost" (click)="revokeAll()">Cerrar todas</button>
+    </div>
+
+    @if (sessionsLoading()) {
+      <p class="pg__loading" style="padding: 1.5rem">Cargando sesiones...</p>
+    } @else {
+      <ag-grid-angular
+        class="ag-theme-quartz"
+        style="height: 380px; width: 100%"
+        [rowData]="sessions()"
+        [columnDefs]="colDefs"
+        [defaultColDef]="defaultColDef"
+      />
+    }
+  </div>
+  }
+</div>

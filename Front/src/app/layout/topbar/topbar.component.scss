@@ -1,0 +1,229 @@
+@use 'styles/tools/mixins' as m;
+
+.topbar {
+  @include m.flex-between;
+  gap: 0.5rem;
+  height: var(--topbar-height);
+  padding: 0 1rem;
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--topbar-border);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 50;
+  flex-shrink: 0;
+
+  @include m.md {
+    gap: 1rem;
+    padding: 0 1.5rem;
+  }
+
+  // ─── Hamburger (solo mobile) ──────────────────────────────
+  &__hamburger {
+    @include m.flex-center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    transition: background var(--ease), color var(--ease);
+
+    &:hover {
+      background: var(--color-bg);
+      color: var(--color-text);
+    }
+
+    @include m.lg {
+      display: none;
+    }
+  }
+
+  // ─── Breadcrumb ───────────────────────────────────────────
+  &__breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  &__crumb {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    transition: color var(--ease);
+
+    &--current {
+      color: var(--color-text);
+      font-weight: 500;
+    }
+
+    &:not(&--current):hover { color: var(--primary); }
+  }
+
+  &__sep {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    user-select: none;
+  }
+
+  // ─── Right cluster ────────────────────────────────────────
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+
+    @include m.md {
+      gap: 0.375rem;
+    }
+  }
+
+  // ─── Search ───────────────────────────────────────────────
+  &__search {
+    display: none;
+
+    @include m.md {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      background: var(--color-bg);
+      border: 1px solid var(--topbar-border);
+      border-radius: var(--radius);
+      min-width: 190px;
+      transition: border-color var(--ease);
+
+      &:focus-within { border-color: var(--primary); }
+    }
+  }
+
+  &__search-input {
+    border: none;
+    background: none;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    flex: 1;
+    outline: none;
+    min-width: 0;
+    font-family: inherit;
+
+    &::placeholder { color: var(--color-text-secondary); }
+  }
+
+  &__kbd {
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    background: #fff;
+    border: 1px solid var(--topbar-border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  // ─── Icon Button ──────────────────────────────────────────
+  &__btn {
+    position: relative;
+    @include m.flex-center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    color: var(--color-text-secondary);
+    transition: background var(--ease), color var(--ease);
+
+    &:hover {
+      background: var(--color-bg);
+      color: var(--color-text);
+    }
+  }
+
+  &__badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    @include m.flex-center;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    background: var(--badge-bg);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 8px;
+    pointer-events: none;
+  }
+
+  // ─── User ─────────────────────────────────────────────────
+  &__user {
+    position: relative;
+  }
+
+  &__user-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem;
+    border-radius: var(--radius);
+    color: var(--color-text);
+    transition: background var(--ease);
+
+    @include m.md {
+      padding: 0.375rem 0.625rem;
+    }
+
+    &:hover { background: var(--color-bg); }
+  }
+
+  &__avatar {
+    @include m.flex-center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  &__username {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    display: none;
+
+    @include m.md {
+      display: block;
+    }
+  }
+
+  // ─── Dropdown ─────────────────────────────────────────────
+  &__dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--topbar-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    min-width: 160px;
+    padding: 4px;
+    z-index: 200;
+  }
+
+  &__dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--color-text);
+    text-align: left;
+    transition: background var(--ease);
+
+    &:hover { background: var(--color-bg); }
+  }
+}

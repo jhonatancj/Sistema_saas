@@ -1,0 +1,47 @@
+// ─── SCSS Variables (disponibles en herramientas/mixins) ─────────────────────
+$bp-sm:  640px;
+$bp-md:  768px;
+$bp-lg: 1024px;
+$bp-xl: 1280px;
+
+// ─── CSS Custom Properties (theming runtime) ──────────────────────────────────
+:root {
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  // Superficie y texto
+  --color-bg:             #f4f6fa;
+  --color-text:           #111827;
+  --color-text-secondary: #6b7280;
+
+  // Sidebar
+  --sidebar-bg:          #1e2235;
+  --sidebar-hover:       rgba(255, 255, 255, 0.06);
+  --sidebar-active:      rgba(255, 255, 255, 0.10);
+  --sidebar-text:        #c9cedd;
+  --sidebar-text-dim:    #7b82a3;
+  --sidebar-border:      rgba(255, 255, 255, 0.08);
+  --sidebar-width:       240px;
+  --sidebar-width-sm:    64px;
+
+  // Topbar
+  --topbar-bg:     #fff;
+  --topbar-border: #e5e7eb;
+  --topbar-height: 56px;
+
+  // Colores
+  --primary:       #4f6ef7;
+  --primary-hover: #3b5ce6;
+  --badge-bg:      #ef4444;
+
+  // Sombras
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+
+  // Radios
+  --radius-sm: 5px;
+  --radius:    8px;
+  --radius-lg: 12px;
+
+  // Transición base
+  --ease: 200ms ease;
+}

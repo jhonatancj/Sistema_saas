@@ -1,0 +1,88 @@
+<div class="pg">
+  <header class="pg__header">
+    <div>
+      <h1 class="pg__title">Usuarios</h1>
+      <p class="pg__sub">Gestiona el acceso de tu equipo</p>
+    </div>
+    <button class="btn btn--primary" (click)="openCreate()">+ Nuevo usuario</button>
+  </header>
+
+  @if (loading()) {
+  <p class="pg__loading">Cargando...</p>
+  } @else {
+  <div class="card">
+    <ag-grid-angular class="ag-theme-quartz" style="height: 500px; width: 100%" [rowData]="users()"
+      [columnDefs]="colDefs" [defaultColDef]="defaultColDef" />
+  </div>
+  }
+</div>
+
+@if (showModal()) {
+<div class="backdrop" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h2 class="modal__title">{{ editingUser() ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
+      <button class="modal__close" (click)="closeModal()">&#x2715;</button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="modal__body">
+        @if (!editingUser()) {
+        <div class="field">
+          <label class="field__lbl">Email *</label>
+          <input class="field__inp" formControlName="email" type="email" />
+          @if (form.get('email')?.invalid && form.get('email')?.touched) {
+          <span class="field__err">Email requerido y válido</span>
+          }
+        </div>
+        }
+
+        <div class="grid grid--2">
+          <div class="field">
+            <label class="field__lbl">Nombre *</label>
+            <input class="field__inp" formControlName="firstName" type="text" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">Apellido *</label>
+            <input class="field__inp" formControlName="lastName" type="text" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__lbl">Contraseña{{ editingUser() ? ' (dejar vacío para no cambiar)' : ' *' }}</label>
+          <input class="field__inp" formControlName="password" type="password" />
+          @if (form.get('password')?.errors?.['minlength'] && form.get('password')?.touched) {
+          <span class="field__err">Mínimo 8 caracteres</span>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field__lbl">Roles</label>
+          <div class="roles">
+            <ng-select formControlName="roles" [items]="ROLES" [multiple]="true" [closeOnSelect]="false"
+              placeholder="Seleccionar roles" bindLabel="label" bindValue="value">
+            </ng-select>
+          </div>
+        </div>
+
+        @if (editingUser()) {
+        <div class="field">
+          <label class="role-check">
+            <input type="checkbox" formControlName="isActive" />
+            Usuario activo
+          </label>
+        </div>
+        }
+
+      </div>
+
+      <div class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando…' : (editingUser() ? 'Guardar cambios' : 'Crear usuario') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}

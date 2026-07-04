@@ -1,0 +1,57 @@
+@use '../tools/mixins' as m;
+
+// Wrapper de página — header con título/subtítulo + acción, usado por
+// (casi) toda pantalla de features/. Si un header necesita un ajuste fino
+// (margin, etc.), sobrescribirlo localmente en el componente.
+.pg {
+  @include m.flex-col;
+  gap: 1.5rem;
+
+  &__header {
+    @include m.flex-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    @include m.page-title;
+  }
+
+  &__sub {
+    @include m.page-subtitle;
+  }
+
+  &__loading,
+  &__empty {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+  }
+}
+
+// Contenedor de tarjeta — base compartida. Modificadores de contenido
+// (padding, flex-col, __title) se agregan localmente por componente según
+// si la tarjeta envuelve una tabla/grid (sin padding) o un formulario (con
+// padding) — ver `card--table` como ejemplo de modificador ya usado.
+.card {
+  background: #fff;
+  border: 1px solid var(--topbar-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  &--table {
+    overflow: hidden;
+
+    &--noborder {
+      border: none;
+    }
+  }
+
+
+}
+
+.empty {
+  padding: 2.5rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}

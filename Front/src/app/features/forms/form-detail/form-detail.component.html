@@ -1,0 +1,68 @@
+<div class="pg">
+
+  @if (loading()) {
+    <p class="pg__loading">Cargando...</p>
+
+  } @else if (form(); as f) {
+
+    <header class="pg__header">
+      <div>
+        <h1 class="pg__title">{{ f.name }}</h1>
+        <!-- <p class="pg__sub">{{ totalRows() ?? 0 }} registros</p> -->
+      </div>
+      <button class="btn btn--primary" (click)="openCreate()">+ Nuevo</button>
+    </header>
+
+    @if (gridConfig().length === 0) {
+      <div class="alert alert--info">
+        Este formulario no tiene grid configurada. Configúrala desde el builder → pestaña Grid.
+      </div>
+    } @else if (modalMode() && isInline()) {
+      <!-- Modo "en la vista" (configurado desde el builder): oculta la grid y
+           muestra el form en su lugar, en vez de un modal flotante. -->
+      <div class="card inline-form">
+        <div class="inline-form__header">
+          <h3 class="inline-form__title">
+            {{ modalMode() === 'edit' ? 'Editar registro' : 'Nuevo registro' }}
+          </h3>
+          <button class="btn btn--ghost btn--sm" (click)="closeModal()">← Volver a la grid</button>
+        </div>
+        @if (modalSchema(); as schema) {
+          <d-form-render [schema]="schema" (formSubmit)="onSubmit($event)" />
+        }
+      </div>
+    } @else {
+      <div class="card card--table--noborder">
+        <app-grid-form
+          [colDefs]="colDefs()"
+          [datasource]="datasource()"
+          [defaultColDef]="defaultColDef"
+          (editRow)="openEdit($event)"
+          (deleteRow)="requestDelete($event)"
+          (searchChange)="search.set($event)"
+        />
+      </div>
+    }
+
+  }
+
+</div>
+
+<!-- Modal — solo si el formulario NO está configurado como "en la vista" -->
+@if (modalMode() && !isInline()) {
+  <div class="backdrop" (click)="closeModal()">
+    <div class="modal" [style.max-width.px]="modalWidthPx()" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h3 class="modal__title">
+          {{ modalMode() === 'edit' ? 'Editar registro' : 'Nuevo registro' }}
+        </h3>
+        <button class="modal__close" (click)="closeModal()">✕</button>
+      </div>
+      <div class="modal__body">
+        @if (modalSchema(); as schema) {
+          <d-form-render [schema]="schema" (formSubmit)="onSubmit($event)" />
+        }
+      </div>
+    </div>
+  </div>
+}

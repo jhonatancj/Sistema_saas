@@ -1,0 +1,107 @@
+<div class="pg">
+  <header class="pg__header">
+    <h1 class="pg__title">Configuración General</h1>
+    <p class="pg__sub">Datos de tu empresa</p>
+  </header>
+
+  @if (loading()) {
+    <p class="pg__loading">Cargando...</p>
+  } @else {
+    <form class="card" [formGroup]="form" (ngSubmit)="save()">
+
+      <div class="section">
+        <h2 class="section__title">Empresa</h2>
+        <div class="grid">
+          <div class="field">
+            <label class="field__lbl">Nombre de la empresa *</label>
+            <input class="field__inp" formControlName="name" type="text" placeholder="Ej: Mi Empresa SAS" />
+            @if (form.get('name')?.invalid && form.get('name')?.touched) {
+              <span class="field__err">Campo requerido</span>
+            }
+          </div>
+          <div class="field">
+            <label class="field__lbl">Razón social</label>
+            <input class="field__inp" formControlName="trade_name" type="text" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">NIT / Tax ID</label>
+            <input class="field__inp" formControlName="tax_id" type="text" />
+          </div>
+          <div class="field">
+            <label class="field__lbl">País</label>
+            <ng-select
+              formControlName="country_code"
+              [items]="COUNTRIES"
+              bindValue="code"
+              bindLabel="label"
+              [searchable]="true"
+              [clearable]="true"
+              placeholder="Buscar país..."
+              notFoundText="Sin resultados"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section__title">Localización</h2>
+        <div class="grid">
+          <div class="field">
+            <label class="field__lbl">Zona horaria</label>
+            <ng-select
+              formControlName="timezone"
+              [items]="TIMEZONES"
+              bindValue="value"
+              bindLabel="label"
+              [searchable]="true"
+              [clearable]="true"
+              placeholder="Buscar zona horaria..."
+              notFoundText="Sin resultados"
+            />
+          </div>
+          <div class="field">
+            <label class="field__lbl">Idioma</label>
+            <ng-select
+              formControlName="locale"
+              [items]="LOCALES"
+              bindValue="value"
+              bindLabel="label"
+              [searchable]="true"
+              [clearable]="true"
+              placeholder="Buscar idioma..."
+              notFoundText="Sin resultados"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section__title">Contacto</h2>
+        <div class="grid">
+          <div class="field">
+            <label class="field__lbl">Email de contacto</label>
+            <input class="field__inp" formControlName="contact_email" type="email" />
+            @if (form.get('contact_email')?.invalid && form.get('contact_email')?.touched) {
+              <span class="field__err">Email inválido</span>
+            }
+          </div>
+          <div class="field">
+            <label class="field__lbl">Teléfono</label>
+            <input class="field__inp" formControlName="contact_phone" type="text" />
+          </div>
+          <div class="field field--full">
+            <label class="field__lbl">URL del logo</label>
+            <input class="field__inp" formControlName="logo_url" type="url" placeholder="https://…" />
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn--primary" type="submit" [disabled]="saving()">
+          {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+        </button>
+      </div>
+
+    </form>
+  }
+</div>

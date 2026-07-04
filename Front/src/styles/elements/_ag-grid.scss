@@ -1,0 +1,62 @@
+@use '../tools/mixins' as m;
+
+
+// .ag-cell-value {
+//    @include m.flex-center-align;
+// }
+ag-grid-angular {
+
+   .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .375rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      transition: all .2s ease;
+
+      &--sm {
+         width: 32px;
+         height: 32px;
+         padding: 0;
+      }
+
+      // Botón eliminar
+      &--danger-ghost {
+         color: var(--badge-bg);
+         border-color: transparent;
+         background: transparent;
+
+         &:hover {
+            color: #fff;
+            background: var(--badge-bg);
+            border-color: var(--badge-bg);
+         }
+
+         &:active {
+            background: var(--badge-bg);
+            border-color: var(--badge-bg);
+         }
+      }
+
+      // Botón editar
+      &--edit-ghost {
+         color: #2563eb;
+         border-color: transparent;
+         background: transparent;
+
+         &:hover {
+            color: #fff;
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+         }
+
+         &:active {
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+         }
+      }
+   }
+}
