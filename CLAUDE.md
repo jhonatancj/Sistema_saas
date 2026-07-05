@@ -289,8 +289,6 @@ momento (no lo dejes para después) y decilo explícitamente en tu respuesta.
 
 ## Riesgos técnicos conocidos
 
-- **No hay repositorio git** en este proyecto — no hay red de seguridad de
-  commits. Ver `CURRENT_STATE.md` para el detalle vivo.
 - `FormGeneratorService.processForm()` no es transaccional — ver
   `docs/adr/003-dynamic-form-engine.md`.
 - `grid_query` (SQL custom de la grid) solo tiene validación de superficie,

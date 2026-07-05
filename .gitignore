@@ -40,6 +40,9 @@ test-results/
 # ── Docker ───────────────────────────────────────────────
 docker-compose.override.yml
 
+# ── Backups de DB (pg_dump, no versionar) ────────────────
+Back/database/backups/
+
 # ── IDEs / editores ──────────────────────────────────────
 .vscode/*
 !.vscode/settings.json

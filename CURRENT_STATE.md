@@ -8,6 +8,52 @@
 
 ## Último trabajo realizado
 
+**Reset de datos de prueba para arrancar producción**: catálogo `public`
+(forms/modules/module_forms/module_roles) vaciado por completo —
+`tbl_producto`/`tbl_test` y sus SPs dropeados, `TRUNCATE ... RESTART IDENTITY
+CASCADE`. `tenant_demo` y `tenant_acme` vaciados de módulos/forms/tablas
+generadas de la misma forma, **conservando** schema, usuario
+(`admin@demo.com`) y roles. Backup previo con `pg_dump -Fc` en
+`Back/database/backups/` (gitignored, no versionado). El super admin y
+`demo` arrancan con sidebar vacío — es lo esperado, listo para que el usuario
+cree los módulos/formularios reales.
+
+**Eliminar formulario desde el builder** (dropea tabla+SP reales, limpia
+asignaciones a módulos): `FormGeneratorService.deleteForm(schema, slug)`
+(`Back/api/src/modules/forms/form-generator.service.ts`) — transacción real
+(`pool.connect()` + BEGIN/COMMIT/ROLLBACK): `DROP FUNCTION` del SP (firma
+nueva de 5 params y la legacy de 3, igual que `buildSpDDL`), `DROP TABLE` de
+`tbl_{slug}` **solo si no está bindeado a una tabla ya existente**
+(`table_name` era `NULL`), `DELETE FROM {schema}.module_forms WHERE
+form_slug=$1` (arregla de raíz, para este camino, el bug de `known-bugs.md`
+sobre módulos con `name: null`), y `DELETE FROM {schema}.forms` (hard delete,
+no soft-delete — la fila de metadata no tiene motivo para sobrevivir si tabla
+y SP ya no existen). Expuesto en `AdminFormsController` como `DELETE
+/admin/forms/:slug` (público) y `DELETE /admin/forms/tenant/:tenantSlug/:slug`
+(tenant), ambos solo super admin. Frontend: botón de basurero junto al lápiz
+en la grid de `AdminBuilderComponent`, con `notification.confirm({danger:
+true})` antes de llamar. Violación de FK (ej. otro form con una columna
+`relation` hacia esta tabla) revierte todo y devuelve 400 con mensaje
+legible en vez de un error crudo de Postgres. Verificado con un form de
+scratch creado y borrado a mano contra la DB real (tabla+SP+fila+
+module_forms confirmados eliminados), más un caso bindeado a tabla existente
+(la tabla sobrevive, solo se borra SP+metadata) y el caso 404. `tsc --noEmit`
+y `ng build`/`nest build` limpios en ambos proyectos.
+
+**Modal de selección de módulos al sincronizar un tenant**: antes
+"Sincronizar módulos del catálogo" en `/admin/tenants/:id` copiaba *todo* el
+catálogo público activo sin posibilidad de elegir. Ahora abre un modal
+(`tenant-detail.component`) que lista `GET /modules/public` con checkboxes
+(todo preseleccionado por default, "Seleccionar todos"/"Ninguno" como atajo)
+y manda `{ moduleIds }` a `POST /admin/tenants/:id/modules/sync`.
+`ModulesService.syncPublicModulesToTenant(schema, moduleIds?)` acota las 3
+queries de INSERT (modules/module_forms/module_roles) a `id = ANY($1)` cuando
+se pasa el array (incluso vacío — un array vacío sincroniza nada, no cae al
+comportamiento legacy); `moduleIds` `undefined` conserva el comportamiento
+histórico de "todo el catálogo" para el otro caller existente
+(`ModulesController.syncToTenant`, sin UI que lo use hoy). `tsc --noEmit` y
+`ng build`/`nest build` limpios.
+
 **Builder → pestaña Grid: columnas manuales para campos de un JOIN** (ver
 `docs/adr/005-grid-datasource-architecture.md`) — bug real encontrado: si el
 admin agregaba un JOIN en la pestaña SQL con columnas que no estaban en el
@@ -114,11 +160,13 @@ en navegador** (Playwright no está instalado en este entorno).
   ver "Riesgos".
 
 **Catálogo público** (`public.forms`/`public.modules`): ejecutable como un
-tenant más desde el super admin (ver `docs/adr/009-...md`). `producto`/`test`
-tienen tabla/SP real en `public` (sincronizados desde `tenant_demo`), 70 filas
-de prueba en `tbl_producto` (`tenant_demo` tiene 71 — una extra preexistente).
-Grid con búsqueda general + paginación real (`docs/adr/005-...md`); todo
-`SELECT` sin `limit` explícito pagina a 25 por default.
+tenant más desde el super admin (ver `docs/adr/009-...md`). **Vacío a
+propósito** desde el reset de esta sesión — el usuario va a crear ahora los
+módulos/formularios reales de producción desde cero (ver "Último trabajo
+realizado"). `tenant_demo`/`tenant_acme` también sin módulos/forms, pero con
+su schema, usuario y roles intactos. Grid con búsqueda general + paginación
+real (`docs/adr/005-...md`); todo `SELECT` sin `limit` explícito pagina a 25
+por default.
 
 **Tenants reales:** `acme` (`tenant_acme`) y `demo` (`tenant_demo`), ambos
 `status='trial'`. Usuario de prueba `demo`: `admin@demo.com` / `password`.
@@ -135,14 +183,17 @@ duplicar estos bloques en un componente nuevo.
 repo) *"Sistema Inventario SaaS — Actual + Visión"* (ID `3501211172838871095`)
 — 15 pantallas de alta fidelidad, sigue vivo si se quiere iterar.
 
-**Este directorio no es un repositorio git** — ver "Riesgos".
+**Hay repositorio git** (el usuario commitea directamente durante la sesión,
+sin pasar por Claude — no asumir que "sin commit" significa "sin guardar").
+`CLAUDE.md` tenía una nota vieja de "no hay repositorio git" que ya no aplica
+y fue corregida esta sesión.
 
 ## Bugs abiertos
 
-- Campo `image` en `VARCHAR(500)` (en vez de `TEXT`, ver
-  `docs/adr/006-image-field-storage.md`) en cualquier tabla `tbl_*` generada
-  antes del fix, salvo `tenant_demo.tbl_producto` (corregida a mano). Requiere
-  `ALTER TABLE ... ALTER COLUMN ... TYPE TEXT` manual por tabla afectada.
+- El bug de `image VARCHAR(500)` (ver `docs/adr/006-image-field-storage.md`)
+  ya no tiene tablas afectadas vivas — el reset de esta sesión dropeó todas
+  las `tbl_*` generadas antes del fix. Vigilar si reaparece en tablas nuevas
+  (no debería: `FormGeneratorService.toDbType()` ya usa `TEXT` para `image`).
 - `public.module_forms` no tiene la misma constraint única
   `UNIQUE(module_id, form_slug)` que ya tienen los schemas de tenant — riesgo
   bajo hoy (`setPublicModuleForms` siempre hace DELETE+INSERT), pero
@@ -150,10 +201,11 @@ repo) *"Sistema Inventario SaaS — Actual + Visión"* (ID `3501211172838871095`
 - Huecos conocidos de `docs/adr/008-form-catalog-access-control.md`: sin poda
   retroactiva de asignaciones ya hechas, sin gate de runtime sobre datos ya
   asignados, `syncPublicModulesToTenant()` no pasa por el gate de acceso.
-- `{schema}.module_forms.form_slug` no tiene FK hacia `forms.slug` (ni en
-  `public` ni en tenant) — borrar un formulario deja filas huérfanas en
-  `module_forms` que aparecen con `name: null` en el sidebar. Ver
-  `docs/known-bugs.md`.
+- `{schema}.module_forms.form_slug` sigue sin FK hacia `forms.slug` — pero
+  desde esta sesión `FormGeneratorService.deleteForm()` limpia `module_forms`
+  del slug borrado dentro de la misma transacción, así que el camino normal
+  (borrar desde el builder) ya no deja huérfanos. Solo puede recurrir si algo
+  borra `{schema}.forms` a mano por SQL. Ver `docs/known-bugs.md`.
 - La búsqueda general de la grid (`filter.search`) incluye columnas `image`
   (TEXT/base64) en el `OR ILIKE` — correcto pero innecesariamente costoso
   contra un campo que nunca va a matchear un término de búsqueda real. No
@@ -162,9 +214,6 @@ repo) *"Sistema Inventario SaaS — Actual + Visión"* (ID `3501211172838871095`
 
 ## Riesgos
 
-- **No hay repositorio git** — cualquier cambio roto se queda roto hasta
-  arreglarlo a mano, sin red de seguridad de commits. Considerar `git init`
-  antes de cambios grandes.
 - `FormGeneratorService.processForm()` no es transaccional (ver
   `docs/adr/003-dynamic-form-engine.md`) — un fallo a mitad de camino puede
   desincronizar `has_table`/`has_sp` del estado real de la DB.
@@ -180,12 +229,15 @@ repo) *"Sistema Inventario SaaS — Actual + Visión"* (ID `3501211172838871095`
 
 ## Próximas prioridades
 
-1. Verificación visual en navegador de todo lo agregado recientemente:
-   sidebar admin dinámico, builder en modo público, `/admin/modules`, modal
-   "Nuevo tenant", buscador + paginación de la grid, modo de visualización
-   modal/inline + ancho custom.
-2. Aplicar el fix de `image` (`VARCHAR(500)` → `TEXT`) a cualquier tabla
-   afectada fuera de `tenant_demo.tbl_producto`.
+1. El usuario va a crear ahora los módulos/formularios reales de producción
+   desde el catálogo `public` (vacío a propósito, ver "Último trabajo
+   realizado") y sincronizarlos hacia `demo`/`acme` con el nuevo modal de
+   selección.
+2. Verificación visual en navegador de todo lo agregado recientemente:
+   eliminar formulario desde el builder, modal de selección de módulos al
+   sincronizar, sidebar admin dinámico, builder en modo público,
+   `/admin/modules`, modal "Nuevo tenant", buscador + paginación de la grid,
+   modo de visualización modal/inline + ancho custom.
 3. Decidir `docker-compose.prod.yml` (pendiente desde el inicio del proyecto).
 4. Decidir sobre Redis: quitarlo del compose o implementar su uso real.
 5. Fase futura ya acordada con el usuario: vista para migrar los *datos*
