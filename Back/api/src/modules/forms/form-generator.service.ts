@@ -32,7 +32,7 @@ export class FormGeneratorService {
       if (node.children?.length) {
         fields.push(...this.extractFields(node.children));
       }
-      if (['text', 'number', 'select', 'textarea', 'checkbox', 'image'].includes(node.type)) {
+      if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency'].includes(node.type)) {
         fields.push({
           key: node.key,
           type: node.type,
@@ -53,6 +53,7 @@ export class FormGeneratorService {
       case 'text': return `VARCHAR(${field.maxLength ?? 255})`;
       case 'textarea': return 'TEXT';
       case 'number': return 'NUMERIC(12,2)';
+      case 'currency': return 'NUMERIC(12,2)';
       case 'select': return 'VARCHAR(100)';
       case 'checkbox': return 'BOOLEAN';
       case 'image': return 'TEXT';
@@ -205,6 +206,7 @@ $$ LANGUAGE plpgsql;`.trim();
     if (field.relation) return `(${raw})::BIGINT`;
     switch (field.type) {
       case 'number': return `(${raw})::NUMERIC`;
+      case 'currency': return `(${raw})::NUMERIC`;
       case 'checkbox': return `(${raw})::BOOLEAN`;
       default: return raw;
     }

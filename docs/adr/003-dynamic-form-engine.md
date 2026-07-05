@@ -38,6 +38,22 @@ El mismo motor opera indistintamente sobre un schema `tenant_<slug>` o sobre
 `public` (el catálogo del super admin es, para este motor, "un tenant más") —
 ver ADR-009.
 
+**Tipos de campo soportados** (deben coincidir con los `NodeType` de
+`@jhonatancj/dforms` que persisten datos — los de layout como `container`/
+`column`/`stepper`/`step` nunca generan columna): `text`, `number`,
+`select`, `textarea`, `checkbox`, `image`, `currency`. Agregar soporte a un
+tipo nuevo de la librería (ej. `date`, `radio`, `email`, `password`, ya
+exportados por dforms pero sin mapear acá) requiere tocar 3 puntos en
+`form-generator.service.ts`: la lista de tipos reconocidos en
+`extractFields()`, el `case` de `toDbType()` (tipo SQL de la columna) y el
+`case` de `castField()` (cómo castear el JSONB del SP al tipo de columna) —
+si falta cualquiera de los 3, el campo se ignora silenciosamente al generar
+la tabla/SP (sin error, simplemente no persiste). Espejo obligatorio en el
+frontend: `CUSTOM_COLUMN_TYPES`/`extractFieldsFromSchema()` en
+`builder.component.ts` (para que la pestaña Grid lo reconozca) y, si el tipo
+necesita un render/filtro particular en la grid de datos (ver `currency`),
+`FormDetailComponent.colDefs`.
+
 ## Consecuencias
 - Máxima flexibilidad: cualquier formulario nuevo no requiere deploy de
   backend.

@@ -32,6 +32,10 @@ interface GridSelectResponse { rows: any[]; total: number; }
 // Tipos de campo que no tienen un filtro de AG-Grid Community razonable
 // (no hay filtro booleano en Community, y filtrar por base64 no aplica).
 const UNFILTERABLE_FIELD_TYPES = new Set(['checkbox', 'image']);
+// `currency` guarda un number puro en la DB (ver @jhonatancj/dforms) — mismo
+// filtro numérico que `number`.
+const NUMERIC_FIELD_TYPES = new Set(['number', 'currency']);
+const currencyFormatter = new Intl.NumberFormat('es-CO');
 
 @Component({
   selector: 'app-form-detail',
@@ -87,11 +91,14 @@ export class FormDetailComponent {
         width: c.width || 150,
         filter: UNFILTERABLE_FIELD_TYPES.has(c.field_type)
           ? false
-          : c.field_type === 'number' ? 'agNumberColumnFilter' : 'agTextColumnFilter',
+          : NUMERIC_FIELD_TYPES.has(c.field_type) ? 'agNumberColumnFilter' : 'agTextColumnFilter',
         cellRenderer: c.field_type === 'image' ? (params: any) => {
           if (!params.value) return '';
 
           return `      <img src="${params.value}" alt="Imagen" style=" width:45px; height:45px; border-radius:6px; object-fit:cover; " /> `;
+        } : c.field_type === 'currency' ? (params: any) => {
+          if (params.value == null || params.value === '') return '';
+          return `$ ${currencyFormatter.format(Number(params.value))}`;
         } : undefined
 
       }))

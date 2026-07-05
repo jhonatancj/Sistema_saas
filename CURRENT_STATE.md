@@ -8,6 +8,27 @@
 
 ## Último trabajo realizado
 
+**Soporte para el tipo de campo `currency` de `@jhonatancj/dforms`** (el
+usuario es el autor de la librería, agregó el componente en `^1.3.2` — ya
+instalado, `NodeType` incluye `'currency'` en el `.d.ts`). Motor y builder
+no lo reconocían todavía: agregado a `FormGeneratorService.extractFields()`/
+`toDbType()` (`NUMERIC(12,2)`, igual que `number`)/`castField()` en el
+backend, y a `CUSTOM_COLUMN_TYPES`/`extractFieldsFromSchema()` en
+`builder.component.ts` — ver la nota nueva en
+`docs/adr/003-dynamic-form-engine.md` sobre qué 3 puntos hay que tocar para
+soportar cualquier tipo de campo nuevo de la librería. `FormDetailComponent`
+ahora filtra `currency` con `agNumberColumnFilter` (igual que `number`) y
+formatea la celda como `$ 1.234` (`Intl.NumberFormat('es-CO')`, sin symbol/
+locale configurables todavía — `grid_config` no guarda esos metadatos del
+campo). Migrados los campos de dinero ya existentes de `number` a
+`currency` (`json_form` reprocesado + `grid_config.field_type` actualizado,
+**la columna real sigue siendo `NUMERIC`, no hubo DDL destructivo**): en
+`public` — `clientes.limite_credito`, `producto_barrio/moda/ferreteria
+.precio_compra/precio_venta`, `servicio_belleza.precio`; y en
+`tenant_demo` (tiene copias propias de `clientes`/`producto_barrio` desde el
+sync) — mismos dos forms. `tsc --noEmit`/`ng build` limpios en ambos
+proyectos.
+
 **Catálogo completo de los 4 rubros** (ver
 `docs/adr/013-catalogo-modulos-multi-vertical.md`) — creados
 `INVENTARIO_MODA` (`producto_moda`: categoría de prenda, talla, color,
