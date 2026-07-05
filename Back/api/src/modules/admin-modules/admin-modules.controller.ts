@@ -6,6 +6,7 @@ import { CreateModuleDto } from '../modules/dto/create-module.dto';
 import { UpdateModuleDto } from '../modules/dto/update-module.dto';
 import { SetModuleFormsDto } from '../modules/dto/set-module-forms.dto';
 import { SetModuleRolesDto } from '../modules/dto/set-module-roles.dto';
+import { SyncModulesDto } from './dto/sync-modules.dto';
 
 @ApiTags('Admin — Módulos de tenant')
 @ApiBearerAuth()
@@ -31,9 +32,9 @@ export class AdminModulesController {
   @ApiOperation({ summary: 'Sincronizar módulos públicos hacia el tenant, incluyendo copia de forms (solo super admin)' })
   @ApiParam({ name: 'id', example: '1' })
   @ApiResponse({ status: 201, description: 'Módulos y formularios sincronizados.' })
-  syncModules(@Request() req, @Param('id') id: string) {
+  syncModules(@Request() req, @Param('id') id: string, @Body() dto: SyncModulesDto) {
     this.checkSuperAdmin(req);
-    return this.service.syncPublicModules(id);
+    return this.service.syncPublicModules(id, dto?.moduleIds);
   }
 
   @Post()

@@ -204,14 +204,25 @@ export class ModulesService {
   // (tenant_name) si el super admin definió uno distinto al de su propio
   // catálogo — mismo criterio que create_tenant_schema() en
   // 04_create_tenant.sql (ver docs/adr/012-module-tenant-name.md).
-  async syncPublicModulesToTenant(schema: string) {
+  //
+  // `moduleIds`: si se pasa un array (incluso vacío), acota el sync a esos
+  // `public.modules.id` exactos — es lo que usa el modal de selección del
+  // builder de tenants. `undefined` (nunca invocado desde el modal, sí desde
+  // `ModulesController.syncToTenant`) conserva el comportamiento histórico de
+  // sincronizar todo el catálogo activo.
+  async syncPublicModulesToTenant(schema: string, moduleIds?: number[]) {
+    const hasFilter = Array.isArray(moduleIds);
+    const filterParams = hasFilter ? [moduleIds] : [];
+
     await this.pool.query(
       `INSERT INTO ${schema}.modules (public_id, name, code, icon, description, sort_order)
        SELECT id, COALESCE(tenant_name, name), code, icon, description, sort_order
-       FROM public.modules WHERE is_active = TRUE
+       FROM public.modules
+       WHERE is_active = TRUE ${hasFilter ? 'AND id = ANY($1)' : ''}
        ON CONFLICT (code) DO UPDATE SET
          name = EXCLUDED.name, icon = EXCLUDED.icon,
          description = EXCLUDED.description, sort_order = EXCLUDED.sort_order`,
+      filterParams,
     );
     // ON CONFLICT (module_id, form_slug) — bug real encontrado al verificar
     // este fix: sin un target explícito, "ON CONFLICT DO NOTHING" no evita
@@ -225,7 +236,9 @@ export class ModulesService {
        SELECT tm.id, pmf.form_slug, pmf.sort_order
        FROM public.module_forms pmf
        INNER JOIN ${schema}.modules tm ON tm.public_id = pmf.module_id
+       ${hasFilter ? 'WHERE pmf.module_id = ANY($1)' : ''}
        ON CONFLICT (module_id, form_slug) DO NOTHING`,
+      filterParams,
     );
 
     // Sin esto, un módulo sincronizado DESPUÉS de la creación del tenant (a
@@ -241,7 +254,9 @@ export class ModulesService {
        SELECT tm.id, pmr.role_code, pmr.can_view, pmr.can_create, pmr.can_edit, pmr.can_delete
        FROM public.module_roles pmr
        INNER JOIN ${schema}.modules tm ON tm.public_id = pmr.module_id
+       ${hasFilter ? 'WHERE pmr.module_id = ANY($1)' : ''}
        ON CONFLICT (module_id, role_code) DO NOTHING`,
+      filterParams,
     );
 
     const assignedSlugs = await this.pool.query(

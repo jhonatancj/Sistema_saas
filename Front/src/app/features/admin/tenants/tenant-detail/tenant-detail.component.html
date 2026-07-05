@@ -81,8 +81,8 @@
         (<a routerLink="/admin/modules">gestionar catálogo</a>) hacia este tenant.
       </p>
       <div class="actions">
-        <button class="btn btn--primary" [disabled]="syncingModules()" (click)="syncModules()">
-          {{ syncingModules() ? 'Sincronizando…' : 'Sincronizar módulos del catálogo' }}
+        <button class="btn btn--primary" [disabled]="loadingPublicModules()" (click)="openSyncModal()">
+          {{ loadingPublicModules() ? 'Cargando…' : 'Sincronizar módulos del catálogo' }}
         </button>
       </div>
     </div>
@@ -172,3 +172,51 @@
 
   }
 </div>
+
+@if (showSyncModal()) {
+<div class="backdrop" (click)="closeSyncModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h2 class="modal__title">Sincronizar módulos del catálogo</h2>
+      <button class="modal__close" (click)="closeSyncModal()">&#x2715;</button>
+    </div>
+
+    <div class="modal__body">
+      <p class="field__hint">
+        Elegí qué módulos del catálogo público copiar a este tenant (y sus formularios). Los
+        módulos ya sincronizados se actualizan con los datos del catálogo; nunca se sobreescriben
+        formularios ni permisos por rol que el tenant ya haya personalizado.
+      </p>
+
+      @if (loadingPublicModules()) {
+      <p class="pg__loading">Cargando módulos...</p>
+      } @else if (publicModules().length === 0) {
+      <p class="empty">No hay módulos activos en el catálogo público.</p>
+      } @else {
+      <div class="sync-modules-quick">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="selectAllModules()">Seleccionar todos</button>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="selectNoModules()">Ninguno</button>
+      </div>
+      <div class="sync-modules-list">
+        @for (m of publicModules(); track m.id) {
+        <label class="sync-modules-list__item">
+          <input type="checkbox" [checked]="isModuleSelected(m.id)" (change)="toggleModuleSelection(m.id)" />
+          @if (m.icon) { <i [class]="m.icon"></i> }
+          <span>{{ m.name }}</span>
+          <code class="sync-modules-list__code">{{ m.code }}</code>
+        </label>
+        }
+      </div>
+      }
+    </div>
+
+    <div class="modal__footer">
+      <button type="button" class="btn btn--ghost" (click)="closeSyncModal()">Cancelar</button>
+      <button type="button" class="btn btn--primary" [disabled]="savingSync() || selectedModuleIds().length === 0"
+        (click)="confirmSync()">
+        {{ savingSync() ? 'Sincronizando…' : 'Sincronizar' }}
+      </button>
+    </div>
+  </div>
+</div>
+}

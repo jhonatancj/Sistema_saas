@@ -39,7 +39,7 @@ const MOCK_DELAY_MS = 300;
 export class FormOptionsMockService implements FormOptionsProvider {
   async loadOptions(endpointId: string, params?: Record<string, any>): Promise<any[]> {
     await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY_MS));
-
++
     switch (endpointId) {
       case 'GET_COUNTRIES':
         return MOCK_COUNTRIES;

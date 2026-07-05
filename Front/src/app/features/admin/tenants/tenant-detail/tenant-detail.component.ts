@@ -12,6 +12,7 @@ interface ApiResp<T> { success: boolean; data: T; message: string; errors: strin
 
 interface FormAccessConfig { mode: 'all' | 'restricted'; allowed_slugs: string[]; }
 interface CatalogFormItem { id: number; slug: string; name: string; icon?: string; }
+interface PublicModuleItem { id: number; name: string; code: string; icon?: string; }
 
 interface AdminTenant {
   id: string;
@@ -84,23 +85,64 @@ export class TenantDetailComponent implements OnInit {
     trialEndsAt: [''],
   });
 
-  readonly syncingModules = signal(false);
+  // ── Modal de selección de módulos a sincronizar ─────────────────────
+  readonly showSyncModal = signal(false);
+  readonly loadingPublicModules = signal(false);
+  readonly publicModules = signal<PublicModuleItem[]>([]);
+  readonly selectedModuleIds = signal<number[]>([]);
+  readonly savingSync = signal(false);
 
-  async syncModules(): Promise<void> {
-    const confirmed = await this.notification.confirm({
-      title: '¿Sincronizar módulos del catálogo?',
-      text: 'Copia los módulos públicos activos (y sus formularios) a este tenant. Los módulos ya sincronizados se actualizan con los datos del catálogo (nombre, ícono, orden); los formularios y permisos por rol nunca se sobreescriben si el tenant ya los tiene.',
-      confirmText: 'Sí, sincronizar',
+  openSyncModal(): void {
+    this.showSyncModal.set(true);
+    this.loadingPublicModules.set(true);
+    this.api.get<ApiResp<PublicModuleItem[]>>('/modules/public').subscribe({
+      next: (res) => {
+        const modules = res.data ?? [];
+        this.publicModules.set(modules);
+        // Todo preseleccionado por default — conserva el comportamiento
+        // histórico de "sincronizar todo"; el admin desmarca lo que no quiere.
+        this.selectedModuleIds.set(modules.map((m) => m.id));
+        this.loadingPublicModules.set(false);
+      },
+      error: () => this.loadingPublicModules.set(false),
     });
-    if (!confirmed) return;
-    this.syncingModules.set(true);
-    this.api.post<ApiResp<any>>(`/admin/tenants/${this.tenantId}/modules/sync`, {}).subscribe({
+  }
+
+  closeSyncModal(): void {
+    this.showSyncModal.set(false);
+  }
+
+  isModuleSelected(id: number): boolean {
+    return this.selectedModuleIds().includes(id);
+  }
+
+  toggleModuleSelection(id: number): void {
+    this.selectedModuleIds.update((ids) =>
+      ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
+    );
+  }
+
+  selectAllModules(): void {
+    this.selectedModuleIds.set(this.publicModules().map((m) => m.id));
+  }
+
+  selectNoModules(): void {
+    this.selectedModuleIds.set([]);
+  }
+
+  confirmSync(): void {
+    if (this.savingSync() || this.selectedModuleIds().length === 0) return;
+    this.savingSync.set(true);
+    this.api.post<ApiResp<any>>(`/admin/tenants/${this.tenantId}/modules/sync`, {
+      moduleIds: this.selectedModuleIds(),
+    }).subscribe({
       next: () => {
-        this.syncingModules.set(false);
+        this.savingSync.set(false);
+        this.closeSyncModal();
         this.notification.success('Módulos sincronizados correctamente.');
       },
       error: (err) => {
-        this.syncingModules.set(false);
+        this.savingSync.set(false);
         this.notification.error(err?.error?.message ?? 'Error al sincronizar módulos.');
       },
     });

@@ -26,9 +26,9 @@ export class AdminModulesService {
     return this.modulesService.getTenantModules(schema);
   }
 
-  async syncPublicModules(tenantId: string) {
+  async syncPublicModules(tenantId: string, moduleIds?: number[]) {
     const schema = await this.resolveTenantSchema(tenantId);
-    return this.modulesService.syncPublicModulesToTenant(schema);
+    return this.modulesService.syncPublicModulesToTenant(schema, moduleIds);
   }
 
   async createModule(tenantId: string, dto: CreateModuleDto) {
