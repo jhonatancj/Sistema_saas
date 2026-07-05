@@ -20,7 +20,7 @@ export class ModulesService {
   // cual). Ver docs/adr/012-module-tenant-name.md.
   async getPublicModules() {
     const result = await this.pool.query(
-      `SELECT m.id, m.name, m.tenant_name, m.code, m.icon, m.description, m.sort_order, m.is_active,
+      `SELECT m.id, m.name, m.tenant_name, m.code, m.tenant_code, m.icon, m.description, m.sort_order, m.is_active,
               array_agg(mf.form_slug ORDER BY mf.sort_order) FILTER (WHERE mf.form_slug IS NOT NULL) as forms
        FROM public.modules m
        LEFT JOIN public.module_forms mf ON mf.module_id = m.id
@@ -31,7 +31,8 @@ export class ModulesService {
   }
 
   async createPublicModule(dto: {
-    name: string; code: string; icon?: string; description?: string; sortOrder?: number; tenantName?: string;
+    name: string; code: string; icon?: string; description?: string; sortOrder?: number;
+    tenantName?: string; tenantCode?: string;
   }) {
     const existing = await this.pool.query(
       `SELECT id FROM public.modules WHERE code = $1`, [dto.code]
@@ -39,15 +40,16 @@ export class ModulesService {
     if ((existing.rowCount ?? 0) > 0) throw new ConflictException(`El código '${dto.code}' ya existe`);
 
     const result = await this.pool.query(
-      `INSERT INTO public.modules (name, code, icon, description, sort_order, tenant_name)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? 0, dto.tenantName ?? null],
+      `INSERT INTO public.modules (name, code, icon, description, sort_order, tenant_name, tenant_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? 0, dto.tenantName ?? null, dto.tenantCode ?? null],
     );
     return result.rows[0];
   }
 
   async updatePublicModule(id: number, dto: {
-    name?: string; icon?: string; description?: string; sortOrder?: number; isActive?: boolean; tenantName?: string;
+    name?: string; icon?: string; description?: string; sortOrder?: number; isActive?: boolean;
+    tenantName?: string; tenantCode?: string;
   }) {
     const result = await this.pool.query(
       `UPDATE public.modules SET
@@ -57,9 +59,10 @@ export class ModulesService {
         sort_order  = COALESCE($4, sort_order),
         is_active   = COALESCE($5, is_active),
         tenant_name = COALESCE($6, tenant_name),
+        tenant_code = COALESCE($7, tenant_code),
         updated_at  = NOW()
-       WHERE id = $7 RETURNING *`,
-      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, dto.tenantName ?? null, id],
+       WHERE id = $8 RETURNING *`,
+      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, dto.tenantName ?? null, dto.tenantCode ?? null, id],
     );
     if ((result.rowCount ?? 0) === 0) throw new NotFoundException('Módulo no encontrado');
     return result.rows[0];
@@ -204,6 +207,11 @@ export class ModulesService {
   // (tenant_name) si el super admin definió uno distinto al de su propio
   // catálogo — mismo criterio que create_tenant_schema() en
   // 04_create_tenant.sql (ver docs/adr/012-module-tenant-name.md).
+  // COALESCE(tenant_code, code): mismo criterio pero para el `code` que
+  // termina expuesto en la URL del tenant (`/app/m/:moduleCode/...`) — ver
+  // docs/adr/014-module-tenant-code.md. Sin esto, un `code` interno
+  // específico de rubro (ej. `INVENTARIO_BARRIO`) se filtraría tal cual a la
+  // URL que ve el usuario final del tenant.
   //
   // `moduleIds`: si se pasa un array (incluso vacío), acota el sync a esos
   // `public.modules.id` exactos — es lo que usa el modal de selección del
@@ -216,7 +224,7 @@ export class ModulesService {
 
     await this.pool.query(
       `INSERT INTO ${schema}.modules (public_id, name, code, icon, description, sort_order)
-       SELECT id, COALESCE(tenant_name, name), code, icon, description, sort_order
+       SELECT id, COALESCE(tenant_name, name), COALESCE(tenant_code, code), icon, description, sort_order
        FROM public.modules
        WHERE is_active = TRUE ${hasFilter ? 'AND id = ANY($1)' : ''}
        ON CONFLICT (code) DO UPDATE SET

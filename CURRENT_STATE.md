@@ -8,6 +8,40 @@
 
 ## Último trabajo realizado
 
+**`tenant_code` en módulos** (ver `docs/adr/014-module-tenant-code.md`,
+extiende ADR-012): el sidebar arma la URL del tenant como
+`/app/m/:moduleCode/:formSlug` usando el `code` interno del catálogo tal
+cual — un módulo como `INVENTARIO_BARRIO` exponía el rubro y las mayúsculas
+en la URL del usuario final. Nueva columna `public.modules.tenant_code`
+(nullable, mismo patrón que `tenant_name`), resuelta con
+`COALESCE(tenant_code, code)` en `syncPublicModulesToTenant()`. Editable
+desde `/admin/modules` → "Editar módulo". Los 3 módulos de tienda de barrio
+ya tienen `tenant_code` seteado (`inventario`/`clientes`/`proveedores`);
+`tenant_demo.modules.code` corregido a mano para los 3 (el re-sync no
+actualiza el `code` de una fila ya sincronizada — ver limitación conocida en
+el ADR, no se resuelve todavía porque no hay tenants reales en producción).
+
+**Catálogo de producción, primer rubro (Tienda de barrio)** — ver
+`docs/adr/013-catalogo-modulos-multi-vertical.md` para el diseño completo de
+los 4 rubros (moda, ferretería, barbería/salón, tienda de barrio) y qué queda
+deliberadamente fuera de esta fase (ventas con carrito+stock, agenda de
+citas). Creados en `public` (vía los mismos servicios que usa la API, no SQL
+a mano): módulos `INVENTARIO_BARRIO`/`CLIENTES`/`PROVEEDORES` con sus 3 forms
+(`producto_barrio`/`clientes`/`proveedores`, tabla+SP reales generados) y
+`module_roles` por rol (ADMIN/SALES/WAREHOUSE, tabla en el ADR). Sincronizado
+y verificado end-to-end contra `tenant_demo` (módulos+forms+roles copiados,
+tablas/SPs del tenant generados, sidebar por rol confirmado con una query
+que simula `getTenantModulesByRole()`). Dos bugs reales encontrados y
+corregidos en el camino, ambos documentados en `docs/known-bugs.md`: (1)
+sincronizar un módulo sin `module_roles` en `public` lo deja invisible para
+cualquier rol de tenant; (2) crear un form llamando a `processForm()`
+directo (sin pasar por la pestaña "Grid" del builder) deja `grid_config` en
+`[]` y la grid se ve vacía aunque tabla/SP estén perfectos — hace falta
+`saveGridConfig()` aparte. Pendiente: repetir este mismo patrón completo
+(form + módulo + roles + grid_config) para `INVENTARIO_MODA`,
+`INVENTARIO_FERRETERIA`, `SERVICIOS_BELLEZA` cuando el usuario los pida
+(diseño de campos ya está en el ADR).
+
 **Reset de datos de prueba para arrancar producción**: catálogo `public`
 (forms/modules/module_forms/module_roles) vaciado por completo —
 `tbl_producto`/`tbl_test` y sus SPs dropeados, `TRUNCATE ... RESTART IDENTITY
@@ -160,13 +194,15 @@ en navegador** (Playwright no está instalado en este entorno).
   ver "Riesgos".
 
 **Catálogo público** (`public.forms`/`public.modules`): ejecutable como un
-tenant más desde el super admin (ver `docs/adr/009-...md`). **Vacío a
-propósito** desde el reset de esta sesión — el usuario va a crear ahora los
-módulos/formularios reales de producción desde cero (ver "Último trabajo
-realizado"). `tenant_demo`/`tenant_acme` también sin módulos/forms, pero con
-su schema, usuario y roles intactos. Grid con búsqueda general + paginación
-real (`docs/adr/005-...md`); todo `SELECT` sin `limit` explícito pagina a 25
-por default.
+tenant más desde el super admin (ver `docs/adr/009-...md`). Tras el reset de
+esta sesión, tiene el primer rubro real: `INVENTARIO_BARRIO`/`CLIENTES`/
+`PROVEEDORES` (ver "Último trabajo realizado" y
+`docs/adr/013-catalogo-modulos-multi-vertical.md`). Los otros 3 rubros
+(moda, ferretería, barbería/salón) están diseñados en el ADR pero **no**
+creados todavía. `tenant_demo` ya tiene ese catálogo sincronizado y con
+tablas/SPs propios generados; `tenant_acme` sigue vacío. Grid con búsqueda
+general + paginación real (`docs/adr/005-...md`); todo `SELECT` sin `limit`
+explícito pagina a 25 por default.
 
 **Tenants reales:** `acme` (`tenant_acme`) y `demo` (`tenant_demo`), ambos
 `status='trial'`. Usuario de prueba `demo`: `admin@demo.com` / `password`.
@@ -229,17 +265,22 @@ y fue corregida esta sesión.
 
 ## Próximas prioridades
 
-1. El usuario va a crear ahora los módulos/formularios reales de producción
-   desde el catálogo `public` (vacío a propósito, ver "Último trabajo
-   realizado") y sincronizarlos hacia `demo`/`acme` con el nuevo modal de
-   selección.
-2. Verificación visual en navegador de todo lo agregado recientemente:
+1. Crear los 3 rubros restantes (`INVENTARIO_MODA`, `INVENTARIO_FERRETERIA`,
+   `SERVICIOS_BELLEZA`) siguiendo el mismo patrón y diseño de campos que ya
+   están en `docs/adr/013-catalogo-modulos-multi-vertical.md` — no olvidar
+   `setPublicModuleRoles()` para cada módulo nuevo (ver el bug encontrado
+   esta sesión).
+2. Diseñar en conjunto con el usuario los 2 formularios complejos que
+   quedaron fuera a propósito: ventas con carrito multi-línea + descuento de
+   stock, y agenda de citas para barbería/salón (ambos requieren tabla+SP a
+   mano, no solo el builder — ver ADR-013).
+3. Verificación visual en navegador de todo lo agregado recientemente:
    eliminar formulario desde el builder, modal de selección de módulos al
    sincronizar, sidebar admin dinámico, builder en modo público,
    `/admin/modules`, modal "Nuevo tenant", buscador + paginación de la grid,
    modo de visualización modal/inline + ancho custom.
-3. Decidir `docker-compose.prod.yml` (pendiente desde el inicio del proyecto).
-4. Decidir sobre Redis: quitarlo del compose o implementar su uso real.
-5. Fase futura ya acordada con el usuario: vista para migrar los *datos*
+4. Decidir `docker-compose.prod.yml` (pendiente desde el inicio del proyecto).
+5. Decidir sobre Redis: quitarlo del compose o implementar su uso real.
+6. Fase futura ya acordada con el usuario: vista para migrar los *datos*
    (tabla + filas) de un formulario probado en `public` hacia un tenant real
    elegido.

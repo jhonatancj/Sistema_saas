@@ -18,4 +18,7 @@ export class UpdateModuleDto {
 
   @ApiPropertyOptional({ example: 'Inventario', description: 'Solo aplica a módulos públicos: nombre que ve el tenant al recibir el módulo. Si se omite, usa `name` tal cual.' })
   tenantName?: string;
+
+  @ApiPropertyOptional({ example: 'inventario', description: 'Solo aplica a módulos públicos: código (usado en la URL del tenant) que recibe el tenant al sincronizar. Si se omite, usa `code` tal cual.' })
+  tenantCode?: string;
 }

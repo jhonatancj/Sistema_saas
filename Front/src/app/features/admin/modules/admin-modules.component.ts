@@ -9,7 +9,7 @@ interface ApiResp<T> { success: boolean; data: T; }
 
 interface PublicModule {
   id: number; name: string; code: string; icon: string; description?: string;
-  tenant_name?: string | null;
+  tenant_name?: string | null; tenant_code?: string | null;
   sort_order: number; is_active: boolean; forms: string[];
 }
 
@@ -53,11 +53,11 @@ export class AdminModulesComponent implements OnInit {
 
   // Estado para crear módulo
   readonly showCreate = signal(false);
-  newName = ''; newCode = ''; newIcon = ''; newDescription = ''; newTenantName = '';
+  newName = ''; newCode = ''; newIcon = ''; newDescription = ''; newTenantName = ''; newTenantCode = '';
 
   // Edición de un módulo ya existente
   editName = ''; editIcon = ''; editDescription = ''; editSortOrder = 0; editIsActive = true;
-  editTenantName = '';
+  editTenantName = ''; editTenantCode = '';
   readonly savingEdit = signal(false);
 
   ngOnInit(): void {
@@ -78,6 +78,7 @@ export class AdminModulesComponent implements OnInit {
     this.editSortOrder = m.sort_order;
     this.editIsActive = m.is_active;
     this.editTenantName = m.tenant_name ?? '';
+    this.editTenantCode = m.tenant_code ?? '';
     this.activeTab.set('forms');
     this.loadRoles(m.id);
   }
@@ -88,11 +89,12 @@ export class AdminModulesComponent implements OnInit {
       name: this.newName, code: this.newCode, icon: this.newIcon || undefined,
       description: this.newDescription || undefined,
       tenantName: this.newTenantName || undefined,
+      tenantCode: this.newTenantCode || undefined,
     }).subscribe({
       next: (res) => {
         this.modules.update((m) => [...m, { ...res.data, forms: [] }]);
         this.showCreate.set(false);
-        this.newName = ''; this.newCode = ''; this.newIcon = ''; this.newDescription = ''; this.newTenantName = '';
+        this.newName = ''; this.newCode = ''; this.newIcon = ''; this.newDescription = ''; this.newTenantName = ''; this.newTenantCode = '';
         this.notification.success('Módulo creado.');
         this.selectModule({ ...res.data, forms: [] });
       },
@@ -111,6 +113,7 @@ export class AdminModulesComponent implements OnInit {
       sortOrder: this.editSortOrder,
       isActive: this.editIsActive,
       tenantName: this.editTenantName || undefined,
+      tenantCode: this.editTenantCode || undefined,
     }).subscribe({
       next: () => {
         this.savingEdit.set(false);

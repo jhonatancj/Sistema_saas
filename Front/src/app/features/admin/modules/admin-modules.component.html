@@ -21,6 +21,7 @@
           <input class="field__inp" placeholder="Código (ej: INVENTORY)" [(ngModel)]="newCode" />
           <input class="field__inp" placeholder="Descripción (opcional)" [(ngModel)]="newDescription" />
           <input class="field__inp" placeholder="Nombre en el tenant (opcional, si difiere del de arriba)" [(ngModel)]="newTenantName" />
+          <input class="field__inp" placeholder="Código en el tenant (opcional, ej: inventario — así se ve en la URL del tenant)" [(ngModel)]="newTenantCode" />
           <div class="mods__icon-row">
             <input class="field__inp" placeholder="Ícono FontAwesome (ej: fa-solid fa-box)" [(ngModel)]="newIcon" />
             @if (newIcon) { <i [class]="newIcon" class="mods__icon-preview"></i> }
@@ -43,6 +44,9 @@
                 {{ m.name }}
                 @if (m.tenant_name && m.tenant_name !== m.name) {
                   <span class="mods__item-sub">→ {{ m.tenant_name }} en el tenant</span>
+                }
+                @if (m.tenant_code && m.tenant_code !== m.code) {
+                  <span class="mods__item-sub">→ /{{ m.tenant_code }} en la URL del tenant</span>
                 }
               </span>
             </span>
@@ -151,6 +155,11 @@
                 <label class="field__lbl">Nombre en el tenant</label>
                 <input class="field__inp" placeholder="Vacío = usa el nombre del catálogo" [(ngModel)]="editTenantName" />
                 <span class="field__hint">Lo que ve el tenant en su propio sidebar al recibir este módulo (al crear el tenant o al sincronizar). Ej: "Inventario" a secas, sin importar cuál variante se le asignó.</span>
+              </div>
+              <div class="field">
+                <label class="field__lbl">Código en el tenant</label>
+                <input class="field__inp" placeholder="Vacío = usa el código del catálogo" [(ngModel)]="editTenantCode" />
+                <span class="field__hint">Se usa en la URL del tenant (`/app/m/&lt;código&gt;/...`). Vacío = el tenant ve el código interno del catálogo tal cual (ej. "INVENTARIO_BARRIO") — normalmente conviene poner uno genérico en minúscula (ej. "inventario").</span>
               </div>
               <div class="field">
                 <label class="field__lbl">Descripción</label>
