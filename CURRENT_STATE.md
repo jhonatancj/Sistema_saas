@@ -8,6 +8,23 @@
 
 ## Último trabajo realizado
 
+**Ofuscar module code / form slug en la URL** (`Front/src/app/core/utils/route-obfuscation.ts`):
+`tenant_code` (ver abajo) no alcanzaba porque solo aplica al sincronizar a un
+tenant real — el super admin sigue viendo el `code` interno en su propio
+panel (`admin.localhost`), por diseño. Pedido del usuario: ocultarlo en
+cualquier contexto, sin tocar el backend. Las rutas `/app/m/:moduleCode/:formSlug`
+y `/admin/m/:moduleCode/:formSlug` pasaron a ser fijas (`/app/m`, `/admin/m`,
+sin params) — el sidebar codifica `code::slug` en base64 dentro de un único
+query param `data` (`encodeFormRoute`/`decodeFormRoute`), y
+`FormDetailComponent` lo decodifica desde `queryParamMap` (reactivo, mismo
+motivo que ya obligaba a `paramMap` reactivo — ver `docs/known-bugs.md`) y
+sigue usando `slug` exactamente igual que antes para todas las llamadas a la
+API. **No es cifrado real** — `atob()` en la consola lo revierte al toque;
+solo evita que se vea a simple vista en la barra de direcciones. Se evaluó y
+descartó una alternativa más invasiva (rutear por `id` numérico con nuevos
+endpoints de backend) a favor de esta, más simple y sin cambios de backend.
+`ng build`/`tsc --noEmit` limpios (Front únicamente, sin cambios en `Back`).
+
 **`tenant_code` en módulos** (ver `docs/adr/014-module-tenant-code.md`,
 extiende ADR-012): el sidebar arma la URL del tenant como
 `/app/m/:moduleCode/:formSlug` usando el `code` interno del catálogo tal

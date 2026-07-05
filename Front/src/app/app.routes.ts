@@ -56,7 +56,9 @@ export const routes: Routes = [
           import('./features/settings/settings-security/settings-security.component').then(m => m.SettingsSecurityComponent),
       },
       {
-        path: 'm/:moduleCode/:formSlug',
+        // Sin params en la ruta a propósito — code/slug van ofuscados en el
+        // query param `data` (ver core/utils/route-obfuscation.ts).
+        path: 'm',
         loadComponent: () =>
           import('./features/forms/form-detail/form-detail.component').then(m => m.FormDetailComponent),
       },
@@ -95,7 +97,9 @@ export const routes: Routes = [
           import('./features/settings/settings-security/settings-security.component').then(m => m.SettingsSecurityComponent),
       },
       {
-        path: 'app/m/:moduleCode/:formSlug',
+        // Sin params en la ruta a propósito — code/slug van ofuscados en el
+        // query param `data` (ver core/utils/route-obfuscation.ts).
+        path: 'app/m',
         loadComponent: () =>
           import('./features/forms/form-detail/form-detail.component').then(m => m.FormDetailComponent),
       },

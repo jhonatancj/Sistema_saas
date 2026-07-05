@@ -7,10 +7,12 @@ import { NavIconComponent } from './nav-icon/nav-icon.component';
 import { LayoutStateService } from '../../core/services/layout-state.service';
 import { AuthService } from '../../core/services/auth.service';
 import { MenuModule, MenuService } from '../../core/services/menu.service';
+import { encodeFormRoute } from '../../core/utils/route-obfuscation';
 
 export interface NavChild {
   label: string;
   route: string;
+  queryParams?: Record<string, string>;
   badge?: number;
   icon?: string | null;
 }
@@ -55,7 +57,8 @@ export class SidebarComponent implements OnInit {
       icon: m.icon || 'fa-solid fa-cube',
       children: (m.forms ?? []).map((f) => ({
         label: f.name || f.slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        route: `/admin/m/${m.code}/${f.slug}`,
+        route: '/admin/m',
+        queryParams: { data: encodeFormRoute(m.code, f.slug) },
         icon: f.icon,
       })),
     })),
@@ -79,7 +82,8 @@ export class SidebarComponent implements OnInit {
       icon: m.icon || 'fa-solid fa-cube',
       children: (m.forms ?? []).map((f) => ({
         label: f.name || f.slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        route: `/app/m/${m.code}/${f.slug}`,
+        route: '/app/m',
+        queryParams: { data: encodeFormRoute(m.code, f.slug) },
         icon: f.icon,
       })),
     })),

@@ -9,6 +9,7 @@ import { BreadcrumbService } from '../../../core/services/breadcrumb.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { FormOptionsMockService } from '../../../core/services/form-options-mock.service';
+import { decodeFormRoute } from '../../../core/utils/route-obfuscation';
 import { GridFormComponent } from '../grid-form/grid-form.component';
 
 interface ApiResp<T> { success: boolean; data: T; message: string; }
@@ -163,17 +164,21 @@ export class FormDetailComponent {
   private moduleCode = '';
 
   // Angular reutiliza esta misma instancia de componente al navegar entre
-  // rutas que matchean el mismo patrón (/app/m/:moduleCode/:formSlug) con
-  // params distintos — ngOnInit NO se vuelve a disparar en ese caso. Por eso
-  // hay que suscribirse a paramMap (reactivo) en vez de leer route.snapshot
-  // una sola vez.
+  // rutas que matchean el mismo patrón (/app/m con distinto query param
+  // `data`) — ngOnInit NO se vuelve a disparar en ese caso. Por eso hay que
+  // suscribirse a queryParamMap (reactivo) en vez de leer route.snapshot una
+  // sola vez. `data` viaja ofuscado en base64 (ver
+  // core/utils/route-obfuscation.ts) para no exponer el code/slug interno
+  // en la URL — nunca es cifrado real, solo evita que se vea a simple vista.
   constructor() {
-    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      this.slug.set(params.get('formSlug') ?? params.get('slug') ?? '');
-      const modulo = params.get('moduleCode') ?? '';
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const decoded = decodeFormRoute(params.get('data'));
+      this.slug.set(decoded?.formSlug ?? '');
+      const modulo = decoded?.moduleCode ?? '';
       this.moduleCode = modulo.charAt(0).toUpperCase() + modulo.slice(1);
       this.resetState();
-      this.loadForm();
+      if (decoded) this.loadForm();
+      else this.loading.set(false);
     });
   }
 
