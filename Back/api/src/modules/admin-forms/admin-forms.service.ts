@@ -96,6 +96,11 @@ export class AdminFormsService {
     });
   }
 
+  async deletePublicForm(slug: string) {
+    await this.formGenerator.deleteForm('public', slug);
+    return { message: `Formulario '${slug}' eliminado` };
+  }
+
   async executePublicForm(
     slug: string, action: string, id?: number, data?: any,
     limit?: number, offset?: number, filter?: any,
@@ -195,6 +200,12 @@ export class AdminFormsService {
       displayMode: dto.displayMode !== undefined ? dto.displayMode : current.display_mode,
       modalWidth: dto.modalWidth !== undefined ? dto.modalWidth : current.modal_width,
     });
+  }
+
+  async deleteTenantForm(tenantSlug: string, slug: string) {
+    const schema = this.tenantSchema(tenantSlug);
+    await this.formGenerator.deleteForm(schema, slug);
+    return { message: `Formulario '${slug}' eliminado` };
   }
 
   async getGridConfig(slug: string, tenantSlug?: string) {

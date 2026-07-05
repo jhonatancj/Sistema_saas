@@ -1,4 +1,4 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
 import { PG_MASTER_POOL } from '../../database/database.module';
 
@@ -360,5 +360,57 @@ $$ LANGUAGE plpgsql;`.trim();
     }
 
     return result.rows[0];
+  }
+
+  // ── 7. Elimina un formulario: dropea el SP y (si la tabla fue generada
+  // por este motor, no bindeada a una ya existente) la tabla real, limpia
+  // las asignaciones a módulos (`module_forms`, sin FK — ver
+  // docs/known-bugs.md) y borra la fila de metadata. Todo en una única
+  // transacción — ver CLAUDE.md "operaciones multi-paso con efectos
+  // estructurales". Si algo más en la DB depende de la tabla (ej. un FK de
+  // relación desde otro formulario), el DROP TABLE falla y todo se revierte
+  // en vez de cascadear un borrado no pedido.
+  async deleteForm(schema: string, slug: string): Promise<void> {
+    const existing = await this.pool.query(
+      `SELECT has_table, has_sp, table_name, sp_name FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
+      [slug],
+    );
+    if ((existing.rowCount ?? 0) === 0) {
+      throw new NotFoundException(`Formulario '${slug}' no encontrado`);
+    }
+    const row = existing.rows[0];
+    const boundToExisting = !!row.table_name;
+    const tableName = row.table_name || `tbl_${slug}`;
+    const spName = row.sp_name || `sp_${slug}`;
+    this.validateIdentifier(tableName, 'Nombre de tabla');
+    this.validateIdentifier(spName, 'Nombre de SP');
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      if (row.has_sp) {
+        await client.query(`DROP FUNCTION IF EXISTS ${schema}.${spName}(VARCHAR, BIGINT, JSONB, BIGINT, BIGINT)`);
+        await client.query(`DROP FUNCTION IF EXISTS ${schema}.${spName}(VARCHAR, BIGINT, JSONB)`);
+      }
+      if (row.has_table && !boundToExisting) {
+        await client.query(`DROP TABLE IF EXISTS ${schema}.${tableName}`);
+      }
+
+      await client.query(`DELETE FROM ${schema}.module_forms WHERE form_slug = $1`, [slug]);
+      await client.query(`DELETE FROM ${schema}.forms WHERE slug = $1`, [slug]);
+
+      await client.query('COMMIT');
+    } catch (err: any) {
+      await client.query('ROLLBACK');
+      if (err?.code === '23503') {
+        throw new BadRequestException(
+          `No se puede eliminar '${slug}': otro objeto de la base de datos depende de su tabla o de su fila de formulario.`,
+        );
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }

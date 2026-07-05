@@ -144,11 +144,22 @@ export class AdminBuilderComponent implements OnInit {
       filter: false,
       width: 120,
       cellRenderer: (p: any) => {
-        const btn = document.createElement('button');
-        btn.innerHTML = `<i class="fa-regular fa-pen-to-square"></i>`;
-        btn.className = 'btn btn--sm btn--edit-ghost';
-        btn.onclick = () => this.openBuilder(p.data);
-        return btn;
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;gap:6px;align-items:center;height:100%';
+
+        const edit = document.createElement('button');
+        edit.innerHTML = `<i class="fa-regular fa-pen-to-square"></i>`;
+        edit.className = 'btn btn--sm btn--edit-ghost';
+        edit.onclick = () => this.openBuilder(p.data);
+
+        const del = document.createElement('button');
+        del.innerHTML = `<i class="fa-regular fa-trash-can"></i>`;
+        del.className = 'btn btn--sm btn--danger-ghost';
+        del.onclick = () => this.requestDeleteForm(p.data);
+
+        div.appendChild(edit);
+        div.appendChild(del);
+        return div;
       },
     },
   ];
@@ -261,6 +272,30 @@ export class AdminBuilderComponent implements OnInit {
     this.resetAdvancedFields(null);
     this.view.set('builder');
     this.breadcrumbs.set([{ label: 'Builder' }, { label: 'Nuevo formulario' }]);
+  }
+
+  async requestDeleteForm(form: FormItem): Promise<void> {
+    const confirmed = await this.notification.confirm({
+      title: `¿Eliminar "${form.name}"?`,
+      text: 'Esto elimina la tabla y el SP generados (si aplica) y quita el formulario de los módulos donde esté registrado. Esta acción no se puede deshacer.',
+      confirmText: 'Sí, eliminar',
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    const tenant = this.selectedTenant();
+    const url = this.isTenantMode() && tenant
+      ? `/admin/forms/tenant/${tenant}/${form.slug}`
+      : `/admin/forms/${form.slug}`;
+
+    this.api.delete<ApiResp<any>>(url).subscribe({
+      next: () => {
+        this.forms.update(list => list.filter(f => f.slug !== form.slug));
+        if (this.activeForm()?.slug === form.slug) this.backToGrid();
+        this.notification.success('Formulario eliminado.');
+      },
+      error: (err) => this.notification.error(err?.error?.message ?? 'Error al eliminar el formulario.'),
+    });
   }
 
   backToGrid(): void {

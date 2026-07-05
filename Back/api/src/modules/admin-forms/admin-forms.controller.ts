@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request, UnauthorizedException, Query, } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, UnauthorizedException, Query, } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { AdminFormsService } from './admin-forms.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -50,6 +50,14 @@ export class AdminFormsController {
   updatePublicForm(@Request() req, @Param('slug') slug: string, @Body() dto: UpdateFormDto) {
     this.guardSuperAdmin(req);
     return this.service.updatePublicForm(slug, dto);
+  }
+
+  @ApiOperation({ summary: 'Eliminar formulario público (dropea tabla generada y SP, limpia asignaciones a módulos)' })
+  @ApiParam({ name: 'slug', example: 'producto' })
+  @Delete(':slug')
+  deletePublicForm(@Request() req, @Param('slug') slug: string) {
+    this.guardSuperAdmin(req);
+    return this.service.deletePublicForm(slug);
   }
 
   // Debe registrarse ANTES de Get(':slug') — si no, Nest matchea esa ruta
@@ -129,6 +137,19 @@ export class AdminFormsController {
   ) {
     this.guardSuperAdmin(req);
     return this.service.updateTenantForm(tenantSlug, slug, dto);
+  }
+
+  @ApiOperation({ summary: 'Eliminar formulario de un tenant (dropea tabla generada y SP, limpia asignaciones a módulos)' })
+  @ApiParam({ name: 'tenantSlug', example: 'demo' })
+  @ApiParam({ name: 'slug', example: 'producto' })
+  @Delete('tenant/:tenantSlug/:slug')
+  deleteTenantForm(
+    @Request() req,
+    @Param('tenantSlug') tenantSlug: string,
+    @Param('slug') slug: string,
+  ) {
+    this.guardSuperAdmin(req);
+    return this.service.deleteTenantForm(tenantSlug, slug);
   }
 
   @ApiOperation({ summary: 'Preview de formulario público' })
