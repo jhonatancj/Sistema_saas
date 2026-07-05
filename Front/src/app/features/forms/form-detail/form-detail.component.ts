@@ -3,11 +3,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { ColDef, IDatasource, IGetRowsParams } from 'ag-grid-community';
 import { Subject } from 'rxjs';
-import { FormRendererComponent, BuilderSchema, FormSubmission } from '@jhonatancj/dforms';
+import { FormRendererComponent, BuilderSchema, FormSubmission, FORM_OPTIONS_PROVIDER } from '@jhonatancj/dforms';
 import { ApiService } from '../../../core/services/api.service';
 import { BreadcrumbService } from '../../../core/services/breadcrumb.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { TenantService } from '../../../core/services/tenant.service';
+import { FormOptionsMockService } from '../../../core/services/form-options-mock.service';
 import { GridFormComponent } from '../grid-form/grid-form.component';
 
 interface ApiResp<T> { success: boolean; data: T; message: string; }
@@ -35,6 +36,10 @@ const UNFILTERABLE_FIELD_TYPES = new Set(['checkbox', 'image']);
   selector: 'app-form-detail',
   standalone: true,
   imports: [GridFormComponent, FormRendererComponent],
+  // Mock temporal para selects con optionsSource — ver FormOptionsMockService.
+  // Registrado acá (no en app.config.ts) para no arrastrar dforms al bundle
+  // inicial: esta ruta ya es lazy y ya importa la librería.
+  providers: [{ provide: FORM_OPTIONS_PROVIDER, useClass: FormOptionsMockService }],
   templateUrl: './form-detail.component.html',
   styleUrl: './form-detail.component.scss',
 })
