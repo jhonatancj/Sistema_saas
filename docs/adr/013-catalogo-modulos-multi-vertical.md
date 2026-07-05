@@ -23,23 +23,30 @@ igual sin importar el negocio del tenant):
 
 **Módulos por rubro** (un `code` distinto por variante, mismo concepto de
 "catálogo de lo que se vende"):
-- `INVENTARIO_BARRIO` (tienda de barrio) — implementado esta sesión. Form
+- `INVENTARIO_BARRIO` (tienda de barrio) — implementado. Form
   `producto_barrio`: nombre, código/SKU, categoría (Abarrotes/Bebidas/Aseo/
   Snacks/Lácteos/Panadería/Cigarrería/Otros), precio_compra, precio_venta,
   stock, unidad (unidad/paquete/caja/gramo/kilo/litro), imagen, descripción,
   activo.
-- `INVENTARIO_MODA` (pendiente de implementar) — mismo esqueleto que
-  `producto_barrio` pero con `talla` (select) y `color` (select o texto) en
-  vez de `unidad`, y categoría de prenda (camisa/pantalón/vestido/calzado/
-  accesorio/otros) en vez de categoría de abarrotes.
-- `INVENTARIO_FERRETERIA` (pendiente) — mismo esqueleto, `unidad_medida` con
-  opciones técnicas (unidad/metro/kilo/litro/galón/rollo/caja) y categoría
-  técnica (herramientas/eléctrico/plomería/pintura/ferretería general/otros)
-  en vez de la categoría de abarrotes.
-- `SERVICIOS_BELLEZA` (pendiente) — no es inventario de productos sino
-  catálogo de servicios: nombre del servicio, categoría (corte/color/
-  manicure/pedicure/tratamiento/otros), duración estimada (minutos, number),
-  precio, descripción, activo. Sin `stock` (no aplica a un servicio).
+- `INVENTARIO_MODA` (moda/ropa) — implementado. Form `producto_moda`: mismo
+  esqueleto que `producto_barrio` pero con `talla` (select XS-XXL) y `color`
+  (texto libre) en vez de `unidad`, y categoría de prenda (camisa/pantalón/
+  vestido/calzado/accesorio/otros) en vez de categoría de abarrotes.
+- `INVENTARIO_FERRETERIA` — implementado. Form `producto_ferreteria`: mismo
+  esqueleto, `unidad_medida` con opciones técnicas (unidad/metro/kilo/litro/
+  galón/rollo/caja) y categoría técnica (herramientas/eléctrico/plomería/
+  pintura/ferretería general/otros) en vez de la categoría de abarrotes.
+- `SERVICIOS_BELLEZA` — implementado. Form `servicio_belleza`: no es
+  inventario de productos sino catálogo de servicios: nombre del servicio,
+  categoría (corte/color/manicure/pedicure/tratamiento/otros),
+  `duracion_min` (number), precio, descripción, activo. Sin `stock` (no
+  aplica a un servicio).
+
+Los 3 módulos de inventario (`INVENTARIO_BARRIO`/`INVENTARIO_MODA`/
+`INVENTARIO_FERRETERIA`) comparten `tenant_code: 'inventario'` (ver
+ADR-014) — un tenant que reciba cualquiera de los 3 ve la misma URL
+genérica, sin importar el rubro real. `SERVICIOS_BELLEZA` usa
+`tenant_code: 'servicios'`.
 
 Cada tenant recibe, vía el modal de sincronización (`tenant-detail.component`,
 `POST /admin/tenants/:id/modules/sync` con `moduleIds`), los módulos core
@@ -66,10 +73,10 @@ transaccional entre tablas:
 Construir estos dos en conjunto con el usuario cuando llegue el momento —
 no bloquean el resto del catálogo.
 
-## Cómo se creó el catálogo de esta sesión
-Los 3 módulos/forms de tienda de barrio (`INVENTARIO_BARRIO`, `CLIENTES`,
-`PROVEEDORES`) se crearon llamando directamente a los mismos servicios que
-usa la API (`FormGeneratorService.processForm('public', …)`,
+## Cómo se creó el catálogo
+Los 6 módulos/forms (`CLIENTES`, `PROVEEDORES`, `INVENTARIO_BARRIO`,
+`INVENTARIO_MODA`, `INVENTARIO_FERRETERIA`, `SERVICIOS_BELLEZA`) se crearon
+llamando directamente a los mismos servicios que usa la API (`FormGeneratorService.processForm('public', …)`,
 `ModulesService.createPublicModule()`, `setPublicModuleForms()`,
 `setPublicModuleRoles()`) desde un script Nest de un solo uso, no a mano por
 SQL — así el JSON de cada formulario tiene exactamente la forma que produce
@@ -102,14 +109,15 @@ que se abre la pestaña Grid sin config previa). **Al crear un form nuevo sin
 pasar por el builder visual, `grid_config` es un paso aparte que no se puede
 saltar** — no basta con `processForm()`.
 
-## Permisos por rol (module_roles) del catálogo tienda de barrio
+## Permisos por rol (module_roles) del catálogo
 Definidos en `public.module_roles` (se copian al tenant en el sync):
 
 | Módulo | ADMIN | SALES | WAREHOUSE |
 |---|---|---|---|
-| Inventario | CRUD completo | solo ver | CRUD completo |
+| Inventario (barrio/moda/ferretería) | CRUD completo | solo ver | CRUD completo |
 | Clientes | CRUD completo | ver+crear+editar (sin borrar) | sin acceso |
 | Proveedores | CRUD completo | sin acceso | solo ver |
+| Servicios (belleza) | CRUD completo | solo ver | sin acceso |
 
 ## Consecuencias
 - Cada rubro nuevo agrega un módulo (`code` nuevo) + form nuevo al catálogo

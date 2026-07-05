@@ -8,6 +8,26 @@
 
 ## Último trabajo realizado
 
+**Catálogo completo de los 4 rubros** (ver
+`docs/adr/013-catalogo-modulos-multi-vertical.md`) — creados
+`INVENTARIO_MODA` (`producto_moda`: categoría de prenda, talla, color,
+precio compra/venta, stock), `INVENTARIO_FERRETERIA` (`producto_ferreteria`:
+categoría técnica, unidad de medida técnica, precio compra/venta, stock) y
+`SERVICIOS_BELLEZA` (`servicio_belleza`: categoría de servicio,
+duración_min, precio — sin stock, no es un producto). Mismo patrón completo
+verificado con Tienda de Barrio: tabla+SP reales, `grid_config` poblado
+desde el arranque (evita el bug de grid vacía documentado en
+`docs/known-bugs.md`), `module_roles` por rol. Los 3 comparten
+`tenant_code: 'inventario'` (moda/ferretería) o `'servicios'` (belleza) —
+consistente entre variantes de un mismo concepto (ver ADR-014). **Ningún
+rubro nuevo sincronizado a un tenant todavía** — el catálogo público ya
+tiene los 4 rubros completos, listo para sincronizar el que corresponda
+cuando haya un tenant real de cada tipo. Corregido en el camino: el usuario
+había cambiado a mano `tenant_code` de `INVENTARIO_BARRIO` a `'inventariob'`
+desde `/admin/modules` mientras probaba — normalizado de vuelta a
+`'inventario'` para mantener consistencia entre las 3 variantes de
+inventario (confirmado con el usuario antes de tocarlo).
+
 **Ofuscar module code / form slug en la URL** (`Front/src/app/core/utils/route-obfuscation.ts`):
 `tenant_code` (ver abajo) no alcanzaba porque solo aplica al sincronizar a un
 tenant real — el super admin sigue viendo el `code` interno en su propio
@@ -282,20 +302,20 @@ y fue corregida esta sesión.
 
 ## Próximas prioridades
 
-1. Crear los 3 rubros restantes (`INVENTARIO_MODA`, `INVENTARIO_FERRETERIA`,
-   `SERVICIOS_BELLEZA`) siguiendo el mismo patrón y diseño de campos que ya
-   están en `docs/adr/013-catalogo-modulos-multi-vertical.md` — no olvidar
-   `setPublicModuleRoles()` para cada módulo nuevo (ver el bug encontrado
-   esta sesión).
+1. Catálogo público completo de los 4 rubros (moda, ferretería, barbería/
+   salón, tienda de barrio) — falta sincronizar cada uno hacia el tenant
+   real que corresponda cuando exista (hoy solo `tienda de barrio` está
+   sincronizado, a `tenant_demo`).
 2. Diseñar en conjunto con el usuario los 2 formularios complejos que
    quedaron fuera a propósito: ventas con carrito multi-línea + descuento de
    stock, y agenda de citas para barbería/salón (ambos requieren tabla+SP a
    mano, no solo el builder — ver ADR-013).
 3. Verificación visual en navegador de todo lo agregado recientemente:
    eliminar formulario desde el builder, modal de selección de módulos al
-   sincronizar, sidebar admin dinámico, builder en modo público,
-   `/admin/modules`, modal "Nuevo tenant", buscador + paginación de la grid,
-   modo de visualización modal/inline + ancho custom.
+   sincronizar, ofuscación de code/slug en la URL, catálogo de los 4 rubros,
+   sidebar admin dinámico, builder en modo público, `/admin/modules`, modal
+   "Nuevo tenant", buscador + paginación de la grid, modo de visualización
+   modal/inline + ancho custom.
 4. Decidir `docker-compose.prod.yml` (pendiente desde el inicio del proyecto).
 5. Decidir sobre Redis: quitarlo del compose o implementar su uso real.
 6. Fase futura ya acordada con el usuario: vista para migrar los *datos*
