@@ -1,7 +1,7 @@
 @use 'styles/tools/mixins' as m;
 
 // .pg, .btn vienen de styles/components/ — ver CLAUDE.md → Reglas Frontend.
-// .backdrop/.modal se sobrescriben completos acá (más ancho, sin footer,
+// .backdrop/.modal se sobrescriben completos acá (más ancho, footer propio,
 // distinto de los modales estándar de styles/components/_modal.scss).
 
 .backdrop {
@@ -43,6 +43,14 @@
     overflow-y: auto;
     flex: 1;
   }
+
+  &__footer {
+    @include m.flex-between;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
 }
 
 // Modo "en la vista" (display_mode='inline', configurado desde el builder) —
@@ -63,5 +71,13 @@
     font-weight: 700;
     color: var(--color-text);
     margin: 0;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--topbar-border);
   }
 }

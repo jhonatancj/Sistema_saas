@@ -2,7 +2,8 @@ import { Component, inject, signal, computed, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { ColDef, IDatasource, IGetRowsParams } from 'ag-grid-community';
-import { FormRendererComponent, BuilderSchema } from '@jhonatancj/dforms';
+import { Subject } from 'rxjs';
+import { FormRendererComponent, BuilderSchema, FormSubmission } from '@jhonatancj/dforms';
 import { ApiService } from '../../../core/services/api.service';
 import { BreadcrumbService } from '../../../core/services/breadcrumb.service';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -29,10 +30,6 @@ interface GridSelectResponse { rows: any[]; total: number; }
 // Tipos de campo que no tienen un filtro de AG-Grid Community razonable
 // (no hay filtro booleano en Community, y filtrar por base64 no aplica).
 const UNFILTERABLE_FIELD_TYPES = new Set(['checkbox', 'image']);
-
-// Tipos de campo "hoja" — deben coincidir con los soportados por
-// FormGeneratorService.extractFields() en el backend.
-const LEAF_FIELD_TYPES = new Set(['text', 'number', 'select', 'textarea', 'checkbox', 'image']);
 
 @Component({
   selector: 'app-form-detail',
@@ -61,6 +58,16 @@ export class FormDetailComponent {
   readonly totalRows = signal<number | null>(null);
   readonly modalMode = signal<'create' | 'edit' | null>(null);
   readonly editingRow = signal<any | null>(null);
+
+  // d-form-render (>=1.3.1) ya no renderiza su propio botón de guardado — el
+  // envío se dispara desde acá vía [submitTrigger], mismo patrón que
+  // exportTrigger$ en el builder.
+  readonly submitTrigger$ = new Subject<void>();
+
+  // Data inicial del formulario — ya no se inyecta en el JSON schema (ver
+  // withPrefilledValues, eliminado); viaja vía [(submission)] (dforms
+  // >=1.3.1). Se resetea en openCreate/openEdit.
+  readonly submission = signal<FormSubmission>({ data: {} });
 
   private readonly gridRef = viewChild(GridFormComponent);
 
@@ -137,18 +144,7 @@ export class FormDetailComponent {
     };
   });
 
-  // @jhonatancj/dforms no expone un input de "valores iniciales" en
-  // <d-form-render>: el FormFactoryService interno arma el FormGroup leyendo
-  // `field.defaultValue` de cada nodo del schema (ver form_render.mjs
-  // FormFactoryService.createForm). Para precargar datos en modo edición
-  // clonamos el json_form y le inyectamos defaultValue por campo antes de
-  // pasarlo al renderer.
-  readonly modalSchema = computed<BuilderSchema | null>(() => {
-    const f = this.form();
-    if (!f) return null;
-    const row = this.editingRow();
-    return row ? this.withPrefilledValues(f.json_form, row) : f.json_form;
-  });
+  readonly modalSchema = computed<BuilderSchema | null>(() => this.form()?.json_form ?? null);
 
   // Modo de visualización configurado desde el builder — 'modal' (default)
   // abre el registro en un modal flotante; 'inline' oculta la grid y muestra
@@ -182,23 +178,30 @@ export class FormDetailComponent {
     this.totalRows.set(null);
     this.modalMode.set(null);
     this.editingRow.set(null);
+    this.submission.set({ data: {} });
     this.search.set('');
     this.gridRef()?.resetSearch();
   }
 
   openCreate(): void {
     this.editingRow.set(null);
+    this.submission.set({ data: {} });
     this.modalMode.set('create');
   }
 
   openEdit(row: any): void {
     this.editingRow.set(row);
+    this.submission.set({ data: row });
     this.modalMode.set('edit');
   }
 
   closeModal(): void {
     this.modalMode.set(null);
     this.editingRow.set(null);
+  }
+
+  requestSubmit(): void {
+    this.submitTrigger$.next();
   }
 
   onSubmit(data: Record<string, any>): void {
@@ -255,18 +258,5 @@ export class FormDetailComponent {
     this.api.get<ApiResp<GridColumn[]>>(`${this.formsBase()}/${this.slug()}/grid`).subscribe({
       next: (res) => this.gridConfig.set(res.data ?? []),
     });
-  }
-
-  private withPrefilledValues(schema: BuilderSchema, row: Record<string, any>): BuilderSchema {
-    const walk = (nodes: any[]): any[] =>
-      nodes.map((node) => {
-        const clone = { ...node };
-        if (clone.children?.length) clone.children = walk(clone.children);
-        if (LEAF_FIELD_TYPES.has(clone.type) && clone.key in row) {
-          clone.defaultValue = row[clone.key];
-        }
-        return clone;
-      });
-    return { ...schema, root: walk(schema.root) };
   }
 }

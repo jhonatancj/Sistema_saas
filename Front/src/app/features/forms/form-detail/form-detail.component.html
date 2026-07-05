@@ -28,8 +28,20 @@
           <button class="btn btn--ghost btn--sm" (click)="closeModal()">← Volver a la grid</button>
         </div>
         @if (modalSchema(); as schema) {
-          <d-form-render [schema]="schema" (formSubmit)="onSubmit($event)" />
+          <d-form-render
+            [schema]="schema"
+            [submission]="submission()"
+            (submissionChange)="submission.set($event)"
+            [submitTrigger]="submitTrigger$"
+            (formSubmit)="onSubmit($event)"
+          />
         }
+        <div class="inline-form__footer">
+          <button class="btn btn--ghost" (click)="closeModal()">Cancelar</button>
+          <button class="btn btn--primary" [disabled]="saving()" (click)="requestSubmit()">
+            {{ saving() ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
       </div>
     } @else {
       <div class="card card--table--noborder">
@@ -60,8 +72,20 @@
       </div>
       <div class="modal__body">
         @if (modalSchema(); as schema) {
-          <d-form-render [schema]="schema" (formSubmit)="onSubmit($event)" />
+          <d-form-render
+            [schema]="schema"
+            [submission]="submission()"
+            (submissionChange)="submission.set($event)"
+            [submitTrigger]="submitTrigger$"
+            (formSubmit)="onSubmit($event)"
+          />
         }
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" (click)="closeModal()">Cancelar</button>
+        <button class="btn btn--primary" [disabled]="saving()" (click)="requestSubmit()">
+          {{ saving() ? 'Guardando...' : 'Guardar' }}
+        </button>
       </div>
     </div>
   </div>
