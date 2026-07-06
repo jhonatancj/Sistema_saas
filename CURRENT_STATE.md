@@ -8,6 +8,42 @@
 
 ## Último trabajo realizado
 
+**Eliminar módulos del catálogo público**: pedido para poder limpiar, por
+ejemplo, `CATEGORIAS`/`UNIDADES_MEDIDA` (desactivados en la reorganización
+de abajo). Nuevo `ModulesService.deletePublicModule(id)` +
+`DELETE /modules/public/:id` — `public.module_forms`/`module_roles` tienen
+`FOREIGN KEY ... ON DELETE CASCADE` hacia `modules(id)` (verificado contra
+la DB real), así que un simple `DELETE FROM public.modules WHERE id=$1`
+limpia todo solo, sin queries manuales adicionales. **Nunca borra el form
+en sí** (`public.forms`) — puede estar anidado en otros módulos (ej.
+`categorias` en varios `INVENTARIO_*`). Tampoco afecta a tenants que ya
+hayan sincronizado ese módulo (mismo criterio "nunca retroactivo" del resto
+del sync). Botón de basurero por módulo en `/admin/modules`
+(`admin-modules.component`), con `notification.confirm({danger:true})`.
+Verificado con un módulo de scratch reusando el form `categorias`: al
+borrar el módulo, sus `module_forms`/`module_roles` desaparecen pero
+`categorias` sigue existiendo y sigue asignado a los otros 5 módulos que lo
+usan. `tsc --noEmit`/`nest build`/`ng build` limpios.
+
+**Reorganización del sidebar** (ver `docs/adr/016-agrupacion-menu-inventario.md`):
+1. `categorias`/`unidades_medida` dejaron de ser módulos standalone
+   (`CATEGORIAS`/`UNIDADES_MEDIDA` ahora `is_active=false`) y pasaron a
+   anidarse en el `module_forms` de cada módulo de rubro —
+   `INVENTARIO_BARRIO`/`INVENTARIO_FERRETERIA` con producto+categorías+
+   unidades; `INVENTARIO_MODA`/`SERVICIOS_BELLEZA` con producto/servicio+
+   categorías (sin unidades, no aplica). Sin cambios de código — pura
+   reorganización de filas en `module_forms` (tabla puente sin
+   exclusividad). `tenant_demo` reorganizado a mano (movidas sus filas de
+   `module_forms` del módulo standalone al `Inventario` local, borrados los
+   módulos 9/10) sin tocar `tbl_categorias`/`tbl_unidades_medida` (8/6 filas
+   intactas). Verificado simulando `getTenantModulesByRole`: un solo grupo
+   "Inventario" con Productos/Categorías/Unidades adentro.
+2. Sidebar de super admin: `Tenants`/`Super Admins`/`Módulos`/`Rubros`/
+   `Builder`/`Seguridad` agrupados en un solo ítem "Administración" (mismo
+   patrón que "Configuración" en el sidebar de tenant) — antes sueltos como
+   ítems de primer nivel. `Dashboard` y los módulos dinámicos no cambiaron.
+   `tsc --noEmit`/`ng build` limpios.
+
 **Bug de fondo: BIGINT string vs. number entre `pg` crudo y JSONB del
 motor** — el tenant `demo` mostraba "Rubro — (sin asignar)" en el detalle
 aunque `rubro_id` ya estaba seteado en la DB. Causa: `pg` devuelve columnas

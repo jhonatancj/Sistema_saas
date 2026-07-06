@@ -71,6 +71,21 @@ export class ModulesService {
     return result.rows[0];
   }
 
+  // Solo borra el módulo del catálogo (fk_pmf_module/fk_pmr_module tienen
+  // ON DELETE CASCADE, así que module_forms/module_roles de este módulo se
+  // limpian solos) — nunca toca los forms en sí (public.forms), que pueden
+  // estar anidados en otros módulos (ej. `categorias` en varios
+  // INVENTARIO_*, ver docs/adr/016-agrupacion-menu-inventario.md). Tampoco
+  // afecta a tenants que ya hayan sincronizado este módulo — mismo criterio
+  // "copy-if-missing, nunca retroactivo" que el resto del sync.
+  async deletePublicModule(id: number) {
+    const result = await this.pool.query(
+      `DELETE FROM public.modules WHERE id = $1 RETURNING id`, [id],
+    );
+    if ((result.rowCount ?? 0) === 0) throw new NotFoundException('Módulo no encontrado');
+    return { message: 'Módulo eliminado' };
+  }
+
   async setPublicModuleForms(moduleId: number, formSlugs: string[]) {
     await this.pool.query(`DELETE FROM public.module_forms WHERE module_id = $1`, [moduleId]);
     if (formSlugs.length > 0) {

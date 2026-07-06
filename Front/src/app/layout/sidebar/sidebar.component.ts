@@ -51,8 +51,6 @@ export class SidebarComponent implements OnInit {
   // el contexto admin.
   readonly adminNavItems = computed<NavItem[]>(() => [
     { label: 'Dashboard', icon: 'fa-solid fa-gauge', route: '/admin/dashboard', exact: true },
-    { label: 'Tenants', icon: 'fa-solid fa-building', route: '/admin/tenants', exact: false },
-    { label: 'Super Admins', icon: 'fa-solid fa-shield-halved', route: '/admin/super-admins', exact: false },
     ...this.menuService.modules().map((m) => ({
       label: m.name,
       icon: m.icon || 'fa-solid fa-cube',
@@ -63,15 +61,22 @@ export class SidebarComponent implements OnInit {
         icon: f.icon,
       })),
     })),
-    { label: 'Modulos', icon: 'fa-solid fa-table-cells', route: '/admin/modules', exact: false },
-    // Catálogo de sistema (no un módulo dinámico) — nunca se sincroniza a
-    // ningún tenant, ver docs/adr/015-catalogo-rubro-categorias-unidades.md.
+    // Ítems de sistema, agrupados aparte de los módulos dinámicos de negocio
+    // — mismo patrón que "Configuración" en tenantNavItems. "Rubros" no es
+    // un módulo dinámico (nunca se sincroniza a ningún tenant, ver
+    // docs/adr/015-catalogo-rubro-categorias-unidades.md) pero reusa la
+    // misma ruta ofuscada /admin/m que los forms de un módulo real.
     {
-      label: 'Rubros', icon: 'fa-solid fa-tags', route: '/admin/m',
-      queryParams: { data: encodeFormRoute('SISTEMA', 'rubro') }, exact: false,
+      label: 'Administración', icon: 'fa-solid fa-toolbox',
+      children: [
+        { label: 'Tenants', route: '/admin/tenants' },
+        { label: 'Super Admins', route: '/admin/super-admins' },
+        { label: 'Módulos', route: '/admin/modules' },
+        { label: 'Rubros', route: '/admin/m', queryParams: { data: encodeFormRoute('SISTEMA', 'rubro') } },
+        { label: 'Builder', route: '/admin/builder' },
+        { label: 'Seguridad', route: '/admin/settings/security' },
+      ],
     },
-    { label: 'Builder', icon: 'fa-solid fa-pen-ruler', route: '/admin/builder', exact: false },
-    { label: 'Seguridad', icon: 'fa-solid fa-lock', route: '/admin/settings/security', exact: false },
   ]);
 
   // Mapea módulos del backend → NavItem con children (formularios, cada uno

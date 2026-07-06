@@ -53,9 +53,14 @@
                 }
               </span>
             </span>
-            @if (!m.is_active) {
-              <span class="mods__item-tag">inactivo</span>
-            }
+            <span class="mods__item-actions">
+              @if (!m.is_active) {
+                <span class="mods__item-tag">inactivo</span>
+              }
+              <button class="btn btn--sm btn--danger-ghost" title="Eliminar módulo" (click)="deleteModule(m, $event)">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </span>
           </li>
         }
       </ul>
@@ -87,7 +92,7 @@
               <ng-select
                 [items]="availableForms()"
                 bindValue="slug"
-                bindLabel="name"
+                bindLabel="slug"
                 [multiple]="true"
                 [ngModel]="selectedForms()"
                 (ngModelChange)="selectedForms.set($event)"

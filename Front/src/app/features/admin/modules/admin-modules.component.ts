@@ -134,6 +134,26 @@ export class AdminModulesComponent implements OnInit {
     });
   }
 
+  async deleteModule(m: PublicModule, event: Event): Promise<void> {
+    event.stopPropagation(); // no disparar selectModule() del <li> padre
+    const confirmed = await this.notification.confirm({
+      title: `¿Eliminar "${m.name}"?`,
+      text: 'Se quita del catálogo público (y de sus permisos/formularios asignados). No afecta a los tenants que ya lo hayan sincronizado, y las formularios en sí no se borran — solo el módulo.',
+      confirmText: 'Sí, eliminar',
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    this.api.delete<ApiResp<any>>(`/modules/public/${m.id}`).subscribe({
+      next: () => {
+        this.modules.update((list) => list.filter((x) => x.id !== m.id));
+        if (this.selected()?.id === m.id) this.selected.set(null);
+        this.notification.success('Módulo eliminado.');
+      },
+      error: (err) => this.notification.error(err?.error?.message ?? 'Error al eliminar el módulo.'),
+    });
+  }
+
   saveForms(): void {
     const m = this.selected();
     if (!m) return;

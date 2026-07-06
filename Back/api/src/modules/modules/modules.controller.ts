@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request, UnauthorizedException, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, UnauthorizedException, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { ModulesService } from './modules.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -45,6 +45,15 @@ export class ModulesController {
   updatePublicModule(@Request() req, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateModuleDto) {
     this.checkSuperAdmin(req);
     return this.modulesService.updatePublicModule(id, dto);
+  }
+
+  @Delete('public/:id')
+  @ApiOperation({ summary: 'Eliminar un módulo público del catálogo (solo super admin)' })
+  @ApiParam({ name: 'id', example: 1 })
+  @ApiResponse({ status: 200, description: 'Módulo eliminado.' })
+  deletePublicModule(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    this.checkSuperAdmin(req);
+    return this.modulesService.deletePublicModule(id);
   }
 
   @Post('public/:id/forms')
