@@ -22,7 +22,7 @@ export class ModulesService {
   // cual). Ver docs/adr/012-module-tenant-name.md.
   async getPublicModules() {
     const result = await this.pool.query(
-      `SELECT m.id, m.name, m.tenant_name, m.code, m.tenant_code, m.icon, m.description, m.sort_order, m.is_active, m.rubro_id,
+      `SELECT m.id, m.name, m.tenant_name, m.code, m.tenant_code, m.icon, m.description, m.sort_order, m.is_active, m.rubro_id, m.created_at,
               array_agg(mf.form_slug ORDER BY mf.sort_order) FILTER (WHERE mf.form_slug IS NOT NULL) as forms
        FROM public.modules m
        LEFT JOIN public.module_forms mf ON mf.module_id = m.id

@@ -8,6 +8,30 @@
 
 ## Último trabajo realizado
 
+**Rediseño de `/admin/modules`** — la lista de módulos (panel izquierdo) se
+alargaba mucho verticalmente con cada módulo nuevo (fila plana, un renglón
+por módulo). Rediseñado siguiendo una referencia visual dada por el
+usuario: la lista pasó a tarjetas (nombre + badge activo/inactivo +
+descripción + chevron, borde izquierdo primary cuando está seleccionada);
+el panel de detalle ahora tiene un header fijo (ícono + nombre + `ID/
+Código/Creado` + un solo botón "Guardar cambios" que dispara la acción de
+la pestaña activa vía `saveCurrentTab()`/`isSavingCurrentTab()` — cada
+pestaña sigue guardando contra su propio endpoint real, esto solo unifica
+el botón visible); pestaña "General" (antes "Editar módulo", ahora primera
+y default al seleccionar un módulo) reorganizada en tarjetas:
+Información básica (nombre + rubro, reusa el selector de Rubro existente
+con el label "Categoría" del mockup) + Iconografía/Visibilidad lado a lado
++ Nombre/código en el tenant + un resumen de "Roles con acceso" (badge
+Total/Parcial/Sin acceso por rol, con link "Gestionar todos" a la pestaña
+Permisos). El botón de eliminar módulo se movió de cada fila de la lista al
+footer del panel de detalle (coincide con el mockup, solo aplica al módulo
+seleccionado). Decisiones tomadas con el usuario: sin color de acento
+personalizable por módulo (el mockup lo tenía, se dejó fuera — sigue
+saliendo del primary global) y sin botón "Previsualizar" (no hay una vista
+previa de módulo real hoy). Único cambio de backend: `getPublicModules()`
+ahora selecciona `m.created_at` (ya existía en la tabla, no se usaba).
+`tsc --noEmit`/`ng build`/`nest build` limpios.
+
 **Eliminar módulos del catálogo público**: pedido para poder limpiar, por
 ejemplo, `CATEGORIAS`/`UNIDADES_MEDIDA` (desactivados en la reorganización
 de abajo). Nuevo `ModulesService.deletePublicModule(id)` +

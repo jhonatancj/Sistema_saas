@@ -10,7 +10,7 @@ interface ApiResp<T> { success: boolean; data: T; }
 interface PublicModule {
   id: number; name: string; code: string; icon: string; description?: string;
   tenant_name?: string | null; tenant_code?: string | null; rubro_id?: number | null;
-  sort_order: number; is_active: boolean; forms: string[];
+  sort_order: number; is_active: boolean; forms: string[]; created_at?: string;
 }
 
 interface FormItem { id: number; slug: string; name: string; }
@@ -49,7 +49,7 @@ export class AdminModulesComponent implements OnInit {
   readonly rubros = signal<RubroItem[]>([]);
   readonly selected = signal<PublicModule | null>(null);
   readonly roles = signal<RoleRow[]>([]);
-  readonly activeTab = signal<'forms' | 'roles' | 'edit'>('forms');
+  readonly activeTab = signal<'forms' | 'roles' | 'edit'>('edit');
   readonly selectedForms = signal<string[]>([]);
   readonly saving = signal(false);
 
@@ -84,7 +84,7 @@ export class AdminModulesComponent implements OnInit {
     this.editTenantName = m.tenant_name ?? '';
     this.editTenantCode = m.tenant_code ?? '';
     this.editRubroId = m.rubro_id ?? null;
-    this.activeTab.set('forms');
+    this.activeTab.set('edit');
     this.loadRoles(m.id);
   }
 
@@ -134,8 +134,7 @@ export class AdminModulesComponent implements OnInit {
     });
   }
 
-  async deleteModule(m: PublicModule, event: Event): Promise<void> {
-    event.stopPropagation(); // no disparar selectModule() del <li> padre
+  async deleteModule(m: PublicModule): Promise<void> {
     const confirmed = await this.notification.confirm({
       title: `¿Eliminar "${m.name}"?`,
       text: 'Se quita del catálogo público (y de sus permisos/formularios asignados). No afecta a los tenants que ya lo hayan sincronizado, y las formularios en sí no se borran — solo el módulo.',
@@ -170,6 +169,34 @@ export class AdminModulesComponent implements OnInit {
           this.notification.error(err?.error?.message ?? 'Error al guardar.');
         },
       });
+  }
+
+  // Un solo botón "Guardar cambios" en el header del panel de detalle
+  // (ver mockup) — dispara la acción real de la pestaña activa. Cada
+  // pestaña sigue guardando contra su propio endpoint (nombre/rubro/etc.,
+  // formularios y permisos son 3 recursos distintos en el backend), esto
+  // solo unifica el botón visible.
+  saveCurrentTab(): void {
+    const tab = this.activeTab();
+    if (tab === 'edit') this.saveEdit();
+    else if (tab === 'forms') this.saveForms();
+    else if (tab === 'roles') this.saveRoles();
+  }
+
+  isSavingCurrentTab(): boolean {
+    return this.activeTab() === 'edit' ? this.savingEdit() : this.saving();
+  }
+
+  // Resumen de acceso para la tarjeta "Roles con acceso" de la pestaña
+  // General — la matriz completa (editable) sigue viviendo en Permisos.
+  roleAccessLabel(role: RoleRow): string {
+    const all = role.can_view && role.can_create && role.can_edit && role.can_delete;
+    const none = !role.can_view && !role.can_create && !role.can_edit && !role.can_delete;
+    return all ? 'Total' : none ? 'Sin acceso' : 'Parcial';
+  }
+
+  formatDate(date: string): string {
+    try { return new Date(date).toLocaleDateString('es-CO'); } catch { return date; }
   }
 
   togglePermission(role: RoleRow, key: PermKey): void {

@@ -11,8 +11,10 @@
     <!-- Panel izquierdo -->
     <aside class="mods__side">
       <div class="mods__side-header">
-        <span class="mods__side-title">Módulos</span>
-        <button class="btn btn--sm btn--primary" (click)="showCreate.set(true)">+ Nuevo</button>
+        <span class="mods__side-title">Módulos ({{ modules().length }})</span>
+        <button class="mods__add-btn" title="Nuevo módulo" (click)="showCreate.set(true)">
+          <i class="fa-solid fa-plus"></i>
+        </button>
       </div>
 
       @if (showCreate()) {
@@ -38,29 +40,21 @@
 
       <ul class="mods__list">
         @for (m of modules(); track m.id) {
-          <li class="mods__item"
-              [class.mods__item--active]="selected()?.id === m.id"
+          <li class="mods__card"
+              [class.mods__card--active]="selected()?.id === m.id"
               (click)="selectModule(m)">
-            <span class="mods__item-main">
-              <i [class]="m.icon || 'fa-solid fa-cube'" class="mods__item-icon"></i>
-              <span class="mods__item-name">
-                {{ m.name }}
-                @if (m.tenant_name && m.tenant_name !== m.name) {
-                  <span class="mods__item-sub">→ {{ m.tenant_name }} en el tenant</span>
-                }
-                @if (m.tenant_code && m.tenant_code !== m.code) {
-                  <span class="mods__item-sub">→ /{{ m.tenant_code }} en la URL del tenant</span>
-                }
+            <div class="mods__card-top">
+              <span class="mods__card-name">{{ m.name }}</span>
+              <span class="mods__card-badge" [class.mods__card-badge--off]="!m.is_active">
+                {{ m.is_active ? 'Activo' : 'Inactivo' }}
               </span>
-            </span>
-            <span class="mods__item-actions">
-              @if (!m.is_active) {
-                <span class="mods__item-tag">inactivo</span>
-              }
-              <button class="btn btn--sm btn--danger-ghost" title="Eliminar módulo" (click)="deleteModule(m, $event)">
-                <i class="fa-regular fa-trash-can"></i>
-              </button>
-            </span>
+            </div>
+            @if (m.description) {
+              <p class="mods__card-desc">{{ m.description }}</p>
+            }
+            @if (selected()?.id !== m.id) {
+              <i class="fa-solid fa-chevron-right mods__card-chevron"></i>
+            }
           </li>
         }
       </ul>
@@ -74,14 +68,122 @@
       } @else {
         <div class="mods__panel">
 
+          <div class="mods__detail-header">
+            <div class="mods__detail-title-row">
+              <span class="mods__detail-icon"><i [class]="selected()!.icon || 'fa-solid fa-cube'"></i></span>
+              <div>
+                <h2 class="mods__detail-title">{{ selected()!.name }}</h2>
+                <p class="mods__detail-meta">
+                  ID {{ selected()!.id }} · Código {{ selected()!.code }}
+                  @if (selected()!.created_at) {
+                    · Creado {{ formatDate(selected()!.created_at!) }}
+                  }
+                </p>
+              </div>
+            </div>
+            <button class="btn btn--primary" [disabled]="isSavingCurrentTab()" (click)="saveCurrentTab()">
+              {{ isSavingCurrentTab() ? 'Guardando...' : 'Guardar cambios' }}
+            </button>
+          </div>
+
           <div class="mods__tabs">
+            <button class="mods__tab" [class.mods__tab--active]="activeTab() === 'edit'"
+                    (click)="activeTab.set('edit')">General</button>
             <button class="mods__tab" [class.mods__tab--active]="activeTab() === 'forms'"
                     (click)="activeTab.set('forms')">Formularios</button>
             <button class="mods__tab" [class.mods__tab--active]="activeTab() === 'roles'"
                     (click)="activeTab.set('roles')">Permisos</button>
-            <button class="mods__tab" [class.mods__tab--active]="activeTab() === 'edit'"
-                    (click)="activeTab.set('edit')">Editar módulo</button>
           </div>
+
+          <!-- Tab General -->
+          @if (activeTab() === 'edit') {
+            <div class="mods__section">
+              <h3 class="mods__card-title">Información básica</h3>
+              <div class="grid grid--2">
+                <div class="field">
+                  <label class="field__lbl">Nombre del módulo</label>
+                  <input class="field__inp" [(ngModel)]="editName" />
+                  <span class="field__hint">Solo lo ves tú, en el sidebar del super admin.</span>
+                </div>
+                <div class="field">
+                  <label class="field__lbl">Categoría (rubro)</label>
+                  <ng-select [items]="rubros()" bindValue="id" bindLabel="nombre" [ngModel]="editRubroId"
+                    (ngModelChange)="editRubroId = $event" placeholder="Vacío = universal/core" [clearable]="true" />
+                  <span class="field__hint">Vacío = se ofrece para cualquier tenant al sincronizar (ej. Clientes/Proveedores/Categorías).</span>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field__lbl">Descripción corta</label>
+                <textarea class="field__inp" rows="2" [(ngModel)]="editDescription"></textarea>
+              </div>
+            </div>
+
+            <div class="mods__section mods__section--split">
+              <div class="mods__icon-card">
+                <h3 class="mods__card-title">Iconografía</h3>
+                <div class="mods__icon-preview-row">
+                  <span class="mods__icon-circle"><i [class]="editIcon || 'fa-solid fa-cube'"></i></span>
+                  <div class="field mods__icon-field">
+                    <label class="field__lbl">Ícono FontAwesome</label>
+                    <input class="field__inp" placeholder="ej: fa-solid fa-box" [(ngModel)]="editIcon" />
+                  </div>
+                </div>
+              </div>
+              <div class="mods__visibility-card">
+                <i class="fa-regular fa-eye mods__visibility-icon"></i>
+                <span class="mods__card-title">Visibilidad</span>
+                <p class="mods__visibility-desc">Activo = se ofrece en el selector de sincronización de tenants.</p>
+                <label class="mods__toggle">
+                  <input type="checkbox" [checked]="editIsActive" (change)="editIsActive = !editIsActive" />
+                  <span class="mods__toggle-track"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="mods__section">
+              <h3 class="mods__card-title">Nombre y código en el tenant</h3>
+              <p class="mods__section-desc">
+                Lo que ve el tenant al recibir este módulo — puede diferir de arriba. Útil para distinguir variantes
+                internas (ej. "Inventario Restaurantes" vs "Inventario Ferreterías" → ambos "Inventario" para el tenant).
+              </p>
+              <div class="grid grid--2">
+                <div class="field">
+                  <label class="field__lbl">Nombre en el tenant</label>
+                  <input class="field__inp" placeholder="Vacío = usa el nombre de arriba" [(ngModel)]="editTenantName" />
+                </div>
+                <div class="field">
+                  <label class="field__lbl">Código en el tenant</label>
+                  <input class="field__inp" placeholder="Vacío = usa el código del catálogo" [(ngModel)]="editTenantCode" />
+                  <span class="field__hint">Se usa en la URL del tenant (/app/m/&lt;código&gt;/...).</span>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field__lbl">Orden en el sidebar</label>
+                <input class="field__inp" type="number" [(ngModel)]="editSortOrder" />
+              </div>
+            </div>
+
+            <div class="mods__section">
+              <div class="mods__roles-header">
+                <h3 class="mods__card-title">Roles con acceso</h3>
+                <button class="mods__link-btn" (click)="activeTab.set('roles')">Gestionar todos</button>
+              </div>
+              @if (roles().length === 0) {
+                <p class="mods__section-desc">Cargando roles…</p>
+              } @else {
+                <ul class="mods__roles-summary">
+                  @for (role of roles(); track role.role_code) {
+                    <li class="mods__roles-summary-item">
+                      <span class="mods__roles-summary-name"><i class="fa-regular fa-id-badge"></i> {{ role.name }}</span>
+                      <span class="mods__roles-summary-badge" [class.mods__roles-summary-badge--none]="roleAccessLabel(role) === 'Sin acceso'">
+                        {{ roleAccessLabel(role) }}
+                      </span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
 
           <!-- Tab Formularios -->
           @if (activeTab() === 'forms') {
@@ -100,11 +202,6 @@
                 [searchable]="true"
                 [closeOnSelect]="false"
               />
-              <div class="mods__footer">
-                <button class="btn btn--primary" [disabled]="saving()" (click)="saveForms()">
-                  {{ saving() ? 'Guardando...' : 'Guardar formularios' }}
-                </button>
-              </div>
             </div>
           }
 
@@ -142,66 +239,14 @@
                   </tbody>
                 </table>
               </div>
-
-              <div class="mods__footer">
-                <button class="btn btn--primary" [disabled]="saving()" (click)="saveRoles()">
-                  {{ saving() ? 'Guardando...' : 'Guardar permisos' }}
-                </button>
-              </div>
             </div>
           }
 
-          <!-- Tab Editar módulo -->
-          @if (activeTab() === 'edit') {
-            <div class="mods__section">
-              <div class="field">
-                <label class="field__lbl">Nombre en el catálogo</label>
-                <input class="field__inp" [(ngModel)]="editName" />
-                <span class="field__hint">Solo lo ves tú, en el sidebar del super admin — útil para distinguir variantes del mismo módulo (ej. "Inventario Restaurantes" vs "Inventario Ferreterías").</span>
-              </div>
-              <div class="field">
-                <label class="field__lbl">Nombre en el tenant</label>
-                <input class="field__inp" placeholder="Vacío = usa el nombre del catálogo" [(ngModel)]="editTenantName" />
-                <span class="field__hint">Lo que ve el tenant en su propio sidebar al recibir este módulo (al crear el tenant o al sincronizar). Ej: "Inventario" a secas, sin importar cuál variante se le asignó.</span>
-              </div>
-              <div class="field">
-                <label class="field__lbl">Código en el tenant</label>
-                <input class="field__inp" placeholder="Vacío = usa el código del catálogo" [(ngModel)]="editTenantCode" />
-                <span class="field__hint">Se usa en la URL del tenant (`/app/m/&lt;código&gt;/...`). Vacío = el tenant ve el código interno del catálogo tal cual (ej. "INVENTARIO_BARRIO") — normalmente conviene poner uno genérico en minúscula (ej. "inventario").</span>
-              </div>
-              <div class="field">
-                <label class="field__lbl">Rubro</label>
-                <ng-select [items]="rubros()" bindValue="id" bindLabel="nombre" [ngModel]="editRubroId"
-                  (ngModelChange)="editRubroId = $event" placeholder="Vacío = universal/core" [clearable]="true" />
-                <span class="field__hint">A qué rubro/vertical aplica este módulo. Vacío = universal (se ofrece para cualquier tenant al sincronizar, ej. Clientes/Proveedores/Categorías).</span>
-              </div>
-              <div class="field">
-                <label class="field__lbl">Descripción</label>
-                <input class="field__inp" [(ngModel)]="editDescription" />
-              </div>
-              <div class="mods__icon-row">
-                <input class="field__inp" placeholder="Ícono FontAwesome" [(ngModel)]="editIcon" />
-                @if (editIcon) { <i [class]="editIcon" class="mods__icon-preview"></i> }
-              </div>
-              <div class="field">
-                <label class="field__lbl">Orden en el sidebar</label>
-                <input class="field__inp" type="number" [(ngModel)]="editSortOrder" />
-              </div>
-              <label class="mods__toggle-row">
-                <label class="mods__toggle">
-                  <input type="checkbox" [checked]="editIsActive" (change)="editIsActive = !editIsActive" />
-                  <span class="mods__toggle-track"></span>
-                </label>
-                Activo (visible en el sidebar)
-              </label>
-              <div class="mods__footer">
-                <button class="btn btn--primary" [disabled]="savingEdit()" (click)="saveEdit()">
-                  {{ savingEdit() ? 'Guardando...' : 'Guardar cambios' }}
-                </button>
-              </div>
-            </div>
-          }
-
+          <div class="mods__detail-footer">
+            <button class="mods__footer-danger-btn" (click)="deleteModule(selected()!)">
+              <i class="fa-regular fa-trash-can"></i> Eliminar módulo
+            </button>
+          </div>
         </div>
       }
     </section>
