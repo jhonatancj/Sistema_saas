@@ -84,15 +84,16 @@ SQL — así el JSON de cada formulario tiene exactamente la forma que produce
 `checkbox`/`image`, cada uno con `children: []`) y pasa por las mismas reglas
 de generación de DDL que el builder visual.
 
-**Nota operativa importante, no un bug**: sincronizar módulos a un tenant
-(`syncPublicModulesToTenant`) copia la *definición* del formulario
-(`json_form`) a `{schema}.forms`, pero **no** genera la tabla/SP real de ese
-tenant — eso requiere abrir el formulario en el builder en modo "Por tenant"
-y guardar (o, como en esta sesión, invocar `processForm` para ese schema).
-Es intencional: el motor nunca genera efectos secundarios (DDL) fuera de una
-acción explícita (ver CLAUDE.md, anti-patrón "generar efectos secundarios
-dentro de un GET" — un sync también debería tratarse como "solo metadata",
-no como "listo para usar").
+**Nota operativa histórica, ya resuelta (ver ADR-015)**: en su momento,
+sincronizar módulos a un tenant (`syncPublicModulesToTenant`) copiaba la
+*definición* del formulario (`json_form`) a `{schema}.forms`, pero no
+generaba la tabla/SP real de ese tenant — requería abrir el formulario en
+el builder en modo "Por tenant" y guardar, o invocar `processForm` a mano
+(como en esta sesión). Un bug real reportado al sincronizar Categorías/
+Unidades a `tenant_demo` (la tabla no existía) llevó a agregar
+`ModulesService.ensureFormsGenerated()`, que ahora genera tabla/SP para
+cualquier form recién asignado dentro del propio sync — ya no hace falta el
+paso manual.
 
 **Bug encontrado tras crear el catálogo: la grid no mostraba nada.**
 `FormDetailComponent.colDefs` (Front) arma las columnas de AG-Grid

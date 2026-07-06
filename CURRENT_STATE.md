@@ -8,6 +8,40 @@
 
 ## Último trabajo realizado
 
+**Bug de fondo: BIGINT string vs. number entre `pg` crudo y JSONB del
+motor** — el tenant `demo` mostraba "Rubro — (sin asignar)" en el detalle
+aunque `rubro_id` ya estaba seteado en la DB. Causa: `pg` devuelve columnas
+`BIGINT` como `string` en una query cruda (`pool.query`), pero el mismo tipo
+sale como `number` cuando pasa por `to_jsonb()` dentro de un SP del motor de
+formularios — `tenants.rubro_id` ("1", string) nunca comparaba `===` igual
+a `tbl_rubro.id` (1, number). Corregido de raíz con
+`types.setTypeParser(20, parseInt)` en `Back/api/src/database/database.module.ts`
+— normaliza BIGINT a `number` en toda la app, no un parche puntual para
+`rubro_id`. Verificado con un script que reproducía la comparación exacta
+(`tenant.rubro_id === rubro.id`): `false` antes del fix, `true` después.
+Documentado en `docs/known-bugs.md` para reconocer el mismo patrón si
+reaparece en otra comparación de ids. Backend corre con `nest start
+--watch`, debería recargar solo.
+
+**Barrido de generación de tabla/SP en el sync** — bug real reportado por el
+usuario tras sincronizar Categorías/Unidades a `tenant_demo`: la tabla no
+existía (`has_table=false`), porque `syncCatalogDataForRubro()` solo
+generaba tabla/SP para esos dos slugs puntuales, y encima solo cuando el
+tenant tenía `rubro_id` (demo no lo tenía). `ModulesService
+.syncPublicModulesToTenant()` ahora corre `ensureFormsGenerated(schema,
+slugs)` — nuevo método privado, genérico para **cualquier** form recién
+asignado a un tenant, no solo Categorías/Unidades — inmediatamente después
+de `copyMissingFormsToTenant()`: por cada slug con `!has_table || !has_sp`,
+llama `processForm()`. Antes esto requería el paso manual documentado
+("abrir el form en el builder, modo Por tenant, guardar"); ahora el sync
+mismo lo resuelve. `syncCatalogDataForRubro()` se simplificó (ya no genera
+tabla, solo copia datos filtrados por rubro, asumiendo que la tabla ya
+existe gracias al paso anterior). Corregido en caliente contra `tenant_demo`
+(re-sync, tabla/SP generados) y aprovechado para asignarle `rubro_id =
+tienda_barrio` (ya tenía ese catálogo de inventario) — ahora
+`tenant_demo.tbl_categorias`/`tbl_unidades_medida` tienen sus 8/6 filas
+reales, ya no vacías. `tsc --noEmit`/`nest build` limpios.
+
 **Catálogo de Rubros + Categorías/Unidades de medida dinámicas** (ver
 `docs/adr/015-catalogo-rubro-categorias-unidades.md`, feature grande de la
 sesión). Resumen:
@@ -361,11 +395,9 @@ y fue corregida esta sesión.
 
 ## Próximas prioridades
 
-1. `tenant_demo`/`tenant_acme` no tienen `rubro_id` (son anteriores a este
-   feature) — decidir si asignarles uno (`demo` calza con `tienda_barrio`,
-   ya tiene ese catálogo sincronizado) para que el modal de sync los filtre
-   correctamente y puedan recibir Categorías/Unidades vía
-   `syncCatalogDataForRubro()`.
+1. `tenant_acme` sigue sin `rubro_id` (`demo` ya se le asignó
+   `tienda_barrio` esta sesión) — decidir si acme necesita uno cuando se le
+   sincronice algo.
 2. Catálogo público completo de los 4 rubros (moda, ferretería, barbería/
    salón, tienda de barrio) — falta sincronizar cada uno hacia el tenant
    real que corresponda cuando exista (hoy solo `tienda de barrio` está

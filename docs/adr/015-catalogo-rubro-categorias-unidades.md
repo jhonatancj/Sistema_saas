@@ -82,6 +82,21 @@ ferretería/belleza. `tbl_unidades_medida` queda vacía (correcto — no hay
 unidades sembradas para `moda`, no aplica a ese rubro). Tenant de prueba
 borrado tras verificar.
 
+**Bug real encontrado tras el primer sync a un tenant real**: `demo`
+sincronizó `CATEGORIAS`/`UNIDADES_MEDIDA` y la tabla no existía
+(`has_table=false`) — `syncCatalogDataForRubro()` generaba tabla/SP solo
+para esos dos slugs puntuales, y solo si el tenant tenía `rubro_id` (`demo`
+no lo tenía todavía). Corregido con un método nuevo, genérico,
+`ModulesService.ensureFormsGenerated(schema, slugs)`: corre para **todos**
+los slugs recién asignados (no solo Categorías/Unidades) inmediatamente
+después de `copyMissingFormsToTenant()`, y genera tabla/SP para cualquiera
+con `has_table`/`has_sp` en falso — reemplaza el paso manual que antes hacía
+falta ("abrir el form en el builder, modo Por tenant, guardar"). Con esto,
+`syncCatalogDataForRubro()` se simplificó: ya no genera tabla, asume que
+existe (la genera el paso anterior) y solo copia los datos filtrados por
+rubro. `demo` recibió `rubro_id = tienda_barrio` (ya tenía ese catálogo de
+inventario) y quedó con sus 8 categorías/6 unidades reales tras un re-sync.
+
 ### 5. `categoria`/`unidad` de los formularios de producto → `optionsSource`
 `producto_barrio`/`producto_moda`/`producto_ferreteria` migrados de
 `options` estático a `optionsSource: 'categorias'`/`'unidades_medida'`,

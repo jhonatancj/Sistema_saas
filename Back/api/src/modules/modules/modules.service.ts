@@ -273,11 +273,45 @@ export class ModulesService {
     const assignedSlugs = await this.pool.query(
       `SELECT DISTINCT form_slug FROM ${schema}.module_forms`,
     );
-    await this.copyMissingFormsToTenant(schema, assignedSlugs.rows.map((r) => r.form_slug));
+    const slugs = assignedSlugs.rows.map((r) => r.form_slug);
+    await this.copyMissingFormsToTenant(schema, slugs);
+
+    // Barrido: `copyMissingFormsToTenant` solo copia la *definición*
+    // (json_form) — nunca genera la tabla/SP real del tenant (ver
+    // docs/adr/013-...md, "nota operativa"). Antes esto quedaba pendiente de
+    // un paso manual (abrir el form en el builder "Por tenant" y guardar);
+    // ahora el sync mismo se encarga de que todo form recién asignado a este
+    // tenant termine con su tabla/SP generados, sin depender de qué módulo
+    // sea ni de si el tenant tiene rubro.
+    await this.ensureFormsGenerated(schema, slugs);
 
     await this.syncCatalogDataForRubro(schema);
 
     return { message: 'Módulos sincronizados' };
+  }
+
+  // ── Genera tabla+SP para cualquier form recién asignado que todavía no
+  // los tenga en este tenant. Idempotente (salta los que ya tienen
+  // has_table+has_sp) — no reprocesa forms que el tenant ya generó, solo
+  // pone al día los que quedaron con la definición copiada pero sin tabla
+  // real (el caso típico: un módulo sincronizado después de crear el tenant).
+  private async ensureFormsGenerated(schema: string, slugs: string[]): Promise<void> {
+    for (const slug of slugs) {
+      const formResult = await this.pool.query(
+        `SELECT json_form, has_table, has_sp, icon, display_mode, modal_width, name, table_name, sp_name
+         FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
+        [slug],
+      );
+      if ((formResult.rowCount ?? 0) === 0) continue;
+      const form = formResult.rows[0];
+      if (form.has_table && form.has_sp) continue;
+
+      await this.formGenerator.processForm(schema, {
+        slug, name: form.name, jsonForm: form.json_form,
+        tableName: form.table_name, spName: form.sp_name,
+        icon: form.icon, displayMode: form.display_mode, modalWidth: form.modal_width,
+      });
+    }
   }
 
   // ── Sync de DATOS (no solo definición) para Categorías/Unidades de medida ──
@@ -293,7 +327,7 @@ export class ModulesService {
   // eligieron — es idempotente y no pisa filas que el tenant ya haya
   // agregado/editado a mano, y no falla si el tenant no tiene rubro (tenants
   // viejos como demo/acme, creados antes de este feature): simplemente no
-  // hace nada.
+  // copia datos (la tabla/SP igual se genera vía `ensureFormsGenerated`).
   private async syncCatalogDataForRubro(schema: string): Promise<void> {
     const tenantResult = await this.pool.query(
       `SELECT rubro_id FROM public.tenants WHERE schema_name = $1 AND deleted_at IS NULL`,
@@ -309,20 +343,11 @@ export class ModulesService {
     if (!rubroCode) return;
 
     for (const slug of ['categorias', 'unidades_medida']) {
-      const formResult = await this.pool.query(
-        `SELECT json_form, has_table, has_sp, icon, display_mode, modal_width, name
-         FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
+      const exists = await this.pool.query(
+        `SELECT 1 FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL AND has_table = TRUE`,
         [slug],
       );
-      if ((formResult.rowCount ?? 0) === 0) continue; // módulo no sincronizado a este tenant
-      const form = formResult.rows[0];
-
-      if (!form.has_table || !form.has_sp) {
-        await this.formGenerator.processForm(schema, {
-          slug, name: form.name, jsonForm: form.json_form, icon: form.icon,
-          displayMode: form.display_mode, modalWidth: form.modal_width,
-        });
-      }
+      if ((exists.rowCount ?? 0) === 0) continue; // no sincronizado a este tenant
 
       const tableName = `tbl_${slug}`;
       const columns = slug === 'unidades_medida'
