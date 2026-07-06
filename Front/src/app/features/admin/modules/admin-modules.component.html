@@ -22,6 +22,9 @@
           <input class="field__inp" placeholder="Descripción (opcional)" [(ngModel)]="newDescription" />
           <input class="field__inp" placeholder="Nombre en el tenant (opcional, si difiere del de arriba)" [(ngModel)]="newTenantName" />
           <input class="field__inp" placeholder="Código en el tenant (opcional, ej: inventario — así se ve en la URL del tenant)" [(ngModel)]="newTenantCode" />
+          <ng-select [items]="rubros()" bindValue="id" bindLabel="nombre" [ngModel]="newRubroId"
+            (ngModelChange)="newRubroId = $event" placeholder="Rubro (vacío = universal/core, ej. Clientes, Proveedores)"
+            [clearable]="true" />
           <div class="mods__icon-row">
             <input class="field__inp" placeholder="Ícono FontAwesome (ej: fa-solid fa-box)" [(ngModel)]="newIcon" />
             @if (newIcon) { <i [class]="newIcon" class="mods__icon-preview"></i> }
@@ -160,6 +163,12 @@
                 <label class="field__lbl">Código en el tenant</label>
                 <input class="field__inp" placeholder="Vacío = usa el código del catálogo" [(ngModel)]="editTenantCode" />
                 <span class="field__hint">Se usa en la URL del tenant (`/app/m/&lt;código&gt;/...`). Vacío = el tenant ve el código interno del catálogo tal cual (ej. "INVENTARIO_BARRIO") — normalmente conviene poner uno genérico en minúscula (ej. "inventario").</span>
+              </div>
+              <div class="field">
+                <label class="field__lbl">Rubro</label>
+                <ng-select [items]="rubros()" bindValue="id" bindLabel="nombre" [ngModel]="editRubroId"
+                  (ngModelChange)="editRubroId = $event" placeholder="Vacío = universal/core" [clearable]="true" />
+                <span class="field__hint">A qué rubro/vertical aplica este módulo. Vacío = universal (se ofrece para cualquier tenant al sincronizar, ej. Clientes/Proveedores/Categorías).</span>
               </div>
               <div class="field">
                 <label class="field__lbl">Descripción</label>

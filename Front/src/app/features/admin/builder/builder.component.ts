@@ -8,7 +8,7 @@ import '../../../core/ag-grid.init';
 import { ApiService } from '../../../core/services/api.service';
 import { BreadcrumbService } from '../../../core/services/breadcrumb.service';
 import { NotificationService } from '../../../core/services/notification.service';
-import { FormOptionsMockService } from '../../../core/services/form-options-mock.service';
+import { RemoteFormOptionsService } from '../../../core/services/remote-form-options.service';
 import { SqlEditorComponent } from '../../../shared/sql-editor/sql-editor.component';
 import { Subject } from 'rxjs';
 
@@ -43,10 +43,11 @@ const CUSTOM_COLUMN_TYPES = ['text', 'number', 'select', 'textarea', 'checkbox',
   selector: 'app-builder',
   standalone: true,
   imports: [NgSelectModule, FormsModule, BuilderComponent, AgGridAngular, SqlEditorComponent],
-  // Mock temporal para selects con optionsSource — ver FormOptionsMockService.
-  // Registrado acá (no en app.config.ts) para no arrastrar dforms al bundle
-  // inicial: esta ruta ya es lazy y ya importa la librería.
-  providers: [{ provide: FORM_OPTIONS_PROVIDER, useClass: FormOptionsMockService }],
+  // Selects con optionsSource (categorías/unidades/rubro, ver
+  // docs/adr/015-catalogo-rubro-categorias-unidades.md). Registrado acá (no
+  // en app.config.ts) para no arrastrar dforms al bundle inicial: esta ruta
+  // ya es lazy y ya importa la librería.
+  providers: [{ provide: FORM_OPTIONS_PROVIDER, useClass: RemoteFormOptionsService }],
   templateUrl: './builder.component.html',
   styleUrl: './builder.component.scss',
 })

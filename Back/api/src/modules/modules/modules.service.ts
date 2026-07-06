@@ -4,12 +4,14 @@ import { PG_MASTER_POOL } from '../../database/database.module';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { ModuleRoleItemDto } from './dto/set-module-roles.dto';
 import { FormAccessService } from '../form-access/form-access.service';
+import { FormGeneratorService } from '../forms/form-generator.service';
 
 @Injectable()
 export class ModulesService {
   constructor(
     @Inject(PG_MASTER_POOL) private readonly pool: Pool,
     private readonly formAccess: FormAccessService,
+    private readonly formGenerator: FormGeneratorService,
   ) { }
 
   // ── Módulos públicos (plantillas) ────────────────────────────────
@@ -20,7 +22,7 @@ export class ModulesService {
   // cual). Ver docs/adr/012-module-tenant-name.md.
   async getPublicModules() {
     const result = await this.pool.query(
-      `SELECT m.id, m.name, m.tenant_name, m.code, m.tenant_code, m.icon, m.description, m.sort_order, m.is_active,
+      `SELECT m.id, m.name, m.tenant_name, m.code, m.tenant_code, m.icon, m.description, m.sort_order, m.is_active, m.rubro_id,
               array_agg(mf.form_slug ORDER BY mf.sort_order) FILTER (WHERE mf.form_slug IS NOT NULL) as forms
        FROM public.modules m
        LEFT JOIN public.module_forms mf ON mf.module_id = m.id
@@ -32,7 +34,7 @@ export class ModulesService {
 
   async createPublicModule(dto: {
     name: string; code: string; icon?: string; description?: string; sortOrder?: number;
-    tenantName?: string; tenantCode?: string;
+    tenantName?: string; tenantCode?: string; rubroId?: number;
   }) {
     const existing = await this.pool.query(
       `SELECT id FROM public.modules WHERE code = $1`, [dto.code]
@@ -40,16 +42,16 @@ export class ModulesService {
     if ((existing.rowCount ?? 0) > 0) throw new ConflictException(`El código '${dto.code}' ya existe`);
 
     const result = await this.pool.query(
-      `INSERT INTO public.modules (name, code, icon, description, sort_order, tenant_name, tenant_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? 0, dto.tenantName ?? null, dto.tenantCode ?? null],
+      `INSERT INTO public.modules (name, code, icon, description, sort_order, tenant_name, tenant_code, rubro_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? 0, dto.tenantName ?? null, dto.tenantCode ?? null, dto.rubroId ?? null],
     );
     return result.rows[0];
   }
 
   async updatePublicModule(id: number, dto: {
     name?: string; icon?: string; description?: string; sortOrder?: number; isActive?: boolean;
-    tenantName?: string; tenantCode?: string;
+    tenantName?: string; tenantCode?: string; rubroId?: number;
   }) {
     const result = await this.pool.query(
       `UPDATE public.modules SET
@@ -60,9 +62,10 @@ export class ModulesService {
         is_active   = COALESCE($5, is_active),
         tenant_name = COALESCE($6, tenant_name),
         tenant_code = COALESCE($7, tenant_code),
+        rubro_id    = COALESCE($8, rubro_id),
         updated_at  = NOW()
-       WHERE id = $8 RETURNING *`,
-      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, dto.tenantName ?? null, dto.tenantCode ?? null, id],
+       WHERE id = $9 RETURNING *`,
+      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, dto.tenantName ?? null, dto.tenantCode ?? null, dto.rubroId ?? null, id],
     );
     if ((result.rowCount ?? 0) === 0) throw new NotFoundException('Módulo no encontrado');
     return result.rows[0];
@@ -272,7 +275,70 @@ export class ModulesService {
     );
     await this.copyMissingFormsToTenant(schema, assignedSlugs.rows.map((r) => r.form_slug));
 
+    await this.syncCatalogDataForRubro(schema);
+
     return { message: 'Módulos sincronizados' };
+  }
+
+  // ── Sync de DATOS (no solo definición) para Categorías/Unidades de medida ──
+  // Primer caso de sync de filas reales (no metadata) en el sistema — ver
+  // docs/adr/015-catalogo-rubro-categorias-unidades.md. `public.tbl_categorias`/
+  // `tbl_unidades_medida` tienen filas de los 4 rubros mezcladas (el super
+  // admin gestiona todo desde un solo catálogo) — `nombre` se repite a
+  // propósito entre rubros (ej. "Otros" en los 4), así que NO hay
+  // `UNIQUE(nombre)` real en la tabla generada; el filtro de duplicados es
+  // `NOT EXISTS` contra el nombre ya presente en el tenant, no `ON CONFLICT`.
+  // Un tenant real solo debe quedarse con las filas de su propio rubro. Se
+  // corre siempre que se sincroniza, sin depender de qué moduleIds se
+  // eligieron — es idempotente y no pisa filas que el tenant ya haya
+  // agregado/editado a mano, y no falla si el tenant no tiene rubro (tenants
+  // viejos como demo/acme, creados antes de este feature): simplemente no
+  // hace nada.
+  private async syncCatalogDataForRubro(schema: string): Promise<void> {
+    const tenantResult = await this.pool.query(
+      `SELECT rubro_id FROM public.tenants WHERE schema_name = $1 AND deleted_at IS NULL`,
+      [schema],
+    );
+    const rubroId = tenantResult.rows[0]?.rubro_id;
+    if (!rubroId) return;
+
+    const rubroResult = await this.pool.query(
+      `SELECT code FROM public.tbl_rubro WHERE id = $1`, [rubroId],
+    );
+    const rubroCode = rubroResult.rows[0]?.code;
+    if (!rubroCode) return;
+
+    for (const slug of ['categorias', 'unidades_medida']) {
+      const formResult = await this.pool.query(
+        `SELECT json_form, has_table, has_sp, icon, display_mode, modal_width, name
+         FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
+        [slug],
+      );
+      if ((formResult.rowCount ?? 0) === 0) continue; // módulo no sincronizado a este tenant
+      const form = formResult.rows[0];
+
+      if (!form.has_table || !form.has_sp) {
+        await this.formGenerator.processForm(schema, {
+          slug, name: form.name, jsonForm: form.json_form, icon: form.icon,
+          displayMode: form.display_mode, modalWidth: form.modal_width,
+        });
+      }
+
+      const tableName = `tbl_${slug}`;
+      const columns = slug === 'unidades_medida'
+        ? 'nombre, abreviatura, rubro, activo'
+        : 'nombre, rubro, activo';
+      await this.pool.query(
+        `INSERT INTO ${schema}.${tableName} (${columns})
+         SELECT src.nombre, ${slug === 'unidades_medida' ? 'src.abreviatura,' : ''} src.rubro, src.activo
+         FROM public.${tableName} src
+         WHERE src.rubro = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM ${schema}.${tableName} t WHERE t.nombre = src.nombre
+           )`,
+        [rubroCode],
+      );
+    }
   }
 
   /**

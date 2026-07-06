@@ -24,7 +24,7 @@ export class AdminService {
     }
 
     async createTenant(dto: {
-        slug: string; name: string; contactEmail?: string; maxUsers?: number;
+        slug: string; name: string; contactEmail?: string; maxUsers?: number; rubroId?: number;
         adminEmail: string; adminPassword: string; adminFirstName: string; adminLastName: string;
     }) {
         if (!/^[a-z0-9][a-z0-9-]{2,98}[a-z0-9]$/i.test(dto.slug)) {
@@ -44,9 +44,9 @@ export class AdminService {
             await client.query('BEGIN');
 
             const tenantResult = await client.query(
-                `INSERT INTO public.tenants (slug, name, contact_email, max_users, schema_name)
-         VALUES ($1, $2, $3, $4, 'pending') RETURNING id`,
-                [dto.slug, dto.name, dto.contactEmail ?? null, dto.maxUsers ?? 5],
+                `INSERT INTO public.tenants (slug, name, contact_email, max_users, rubro_id, schema_name)
+         VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id`,
+                [dto.slug, dto.name, dto.contactEmail ?? null, dto.maxUsers ?? 5, dto.rubroId ?? null],
             );
             const tenantId = tenantResult.rows[0].id;
 
@@ -79,7 +79,7 @@ export class AdminService {
         const result = await this.pool.query(
             `SELECT id, slug, name, trade_name, tax_id, country_code, timezone,
               locale, status, schema_name, contact_email, contact_phone,
-              logo_url, max_users, trial_ends_at, created_at
+              logo_url, max_users, trial_ends_at, rubro_id, created_at
        FROM public.tenants WHERE id = $1 AND deleted_at IS NULL`,
             [id],
         );
@@ -91,16 +91,18 @@ export class AdminService {
         status?: string;
         maxUsers?: number;
         trialEndsAt?: string;
+        rubroId?: number;
     }) {
         const result = await this.pool.query(
             `UPDATE public.tenants SET
         status        = COALESCE($1, status),
         max_users     = COALESCE($2, max_users),
         trial_ends_at = COALESCE($3::TIMESTAMPTZ, trial_ends_at),
+        rubro_id      = COALESCE($4, rubro_id),
         updated_at    = NOW()
-       WHERE id = $4 AND deleted_at IS NULL
-       RETURNING id, slug, name, status, max_users, trial_ends_at`,
-            [dto.status ?? null, dto.maxUsers ?? null, dto.trialEndsAt ?? null, id],
+       WHERE id = $5 AND deleted_at IS NULL
+       RETURNING id, slug, name, status, max_users, trial_ends_at, rubro_id`,
+            [dto.status ?? null, dto.maxUsers ?? null, dto.trialEndsAt ?? null, dto.rubroId ?? null, id],
         );
         if ((result.rowCount ?? 0) === 0) throw new NotFoundException('Tenant no encontrado');
         return result.rows[0];

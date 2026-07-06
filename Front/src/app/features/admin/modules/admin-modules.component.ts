@@ -9,11 +9,12 @@ interface ApiResp<T> { success: boolean; data: T; }
 
 interface PublicModule {
   id: number; name: string; code: string; icon: string; description?: string;
-  tenant_name?: string | null; tenant_code?: string | null;
+  tenant_name?: string | null; tenant_code?: string | null; rubro_id?: number | null;
   sort_order: number; is_active: boolean; forms: string[];
 }
 
 interface FormItem { id: number; slug: string; name: string; }
+interface RubroItem { id: number; nombre: string; code: string; }
 
 interface RoleRow {
   role_code: string; name: string;
@@ -45,6 +46,7 @@ export class AdminModulesComponent implements OnInit {
 
   readonly modules = signal<PublicModule[]>([]);
   readonly availableForms = signal<FormItem[]>([]);
+  readonly rubros = signal<RubroItem[]>([]);
   readonly selected = signal<PublicModule | null>(null);
   readonly roles = signal<RoleRow[]>([]);
   readonly activeTab = signal<'forms' | 'roles' | 'edit'>('forms');
@@ -54,10 +56,11 @@ export class AdminModulesComponent implements OnInit {
   // Estado para crear módulo
   readonly showCreate = signal(false);
   newName = ''; newCode = ''; newIcon = ''; newDescription = ''; newTenantName = ''; newTenantCode = '';
+  newRubroId: number | null = null;
 
   // Edición de un módulo ya existente
   editName = ''; editIcon = ''; editDescription = ''; editSortOrder = 0; editIsActive = true;
-  editTenantName = ''; editTenantCode = '';
+  editTenantName = ''; editTenantCode = ''; editRubroId: number | null = null;
   readonly savingEdit = signal(false);
 
   ngOnInit(): void {
@@ -67,6 +70,7 @@ export class AdminModulesComponent implements OnInit {
     ]);
     this.loadModules();
     this.loadForms();
+    this.loadRubros();
   }
 
   selectModule(m: PublicModule): void {
@@ -79,6 +83,7 @@ export class AdminModulesComponent implements OnInit {
     this.editIsActive = m.is_active;
     this.editTenantName = m.tenant_name ?? '';
     this.editTenantCode = m.tenant_code ?? '';
+    this.editRubroId = m.rubro_id ?? null;
     this.activeTab.set('forms');
     this.loadRoles(m.id);
   }
@@ -90,11 +95,12 @@ export class AdminModulesComponent implements OnInit {
       description: this.newDescription || undefined,
       tenantName: this.newTenantName || undefined,
       tenantCode: this.newTenantCode || undefined,
+      rubroId: this.newRubroId ?? undefined,
     }).subscribe({
       next: (res) => {
         this.modules.update((m) => [...m, { ...res.data, forms: [] }]);
         this.showCreate.set(false);
-        this.newName = ''; this.newCode = ''; this.newIcon = ''; this.newDescription = ''; this.newTenantName = ''; this.newTenantCode = '';
+        this.newName = ''; this.newCode = ''; this.newIcon = ''; this.newDescription = ''; this.newTenantName = ''; this.newTenantCode = ''; this.newRubroId = null;
         this.notification.success('Módulo creado.');
         this.selectModule({ ...res.data, forms: [] });
       },
@@ -114,6 +120,7 @@ export class AdminModulesComponent implements OnInit {
       isActive: this.editIsActive,
       tenantName: this.editTenantName || undefined,
       tenantCode: this.editTenantCode || undefined,
+      rubroId: this.editRubroId ?? undefined,
     }).subscribe({
       next: () => {
         this.savingEdit.set(false);
@@ -186,6 +193,14 @@ export class AdminModulesComponent implements OnInit {
   private loadForms(): void {
     this.api.get<ApiResp<FormItem[]>>('/admin/forms').subscribe({
       next: (res) => this.availableForms.set(res.data ?? []),
+    });
+  }
+
+  private loadRubros(): void {
+    this.api.post<ApiResp<{ rows: RubroItem[] }>>('/admin/forms/rubro/execute', {
+      action: 'SELECT', limit: 100, offset: 0,
+    }).subscribe({
+      next: (res) => this.rubros.set(res.data.rows ?? []),
     });
   }
 

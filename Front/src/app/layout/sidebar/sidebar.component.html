@@ -84,6 +84,7 @@
     } @else {
       <a class="sidebar__item"
          [routerLink]="item.route ?? '/'"
+         [queryParams]="item.queryParams"
          routerLinkActive="sidebar__item--active"
          [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
          [title]="item.label">

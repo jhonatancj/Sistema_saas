@@ -20,6 +20,8 @@ interface AdminTenant {
   created_at: string;
 }
 
+interface RubroItem { id: number; nombre: string; code: string; }
+
 @Component({
   selector: 'app-tenants-list',
   standalone: true,
@@ -38,12 +40,14 @@ export class TenantsListComponent implements OnInit {
   readonly tenants = signal<AdminTenant[]>([]);
   readonly showModal = signal(false);
   readonly saving = signal(false);
+  readonly rubros = signal<RubroItem[]>([]);
 
   readonly form = this.fb.group({
     slug: ['', [Validators.required, Validators.pattern(/^[a-z0-9][a-z0-9-]{2,98}[a-z0-9]$/)]],
     name: ['', Validators.required],
     contactEmail: ['', Validators.email],
     maxUsers: [5, [Validators.required, Validators.min(1)]],
+    rubroId: [null as number | null, Validators.required],
     adminEmail: ['', [Validators.required, Validators.email]],
     adminPassword: ['', [Validators.required, Validators.minLength(8)]],
     adminFirstName: ['', Validators.required],
@@ -109,6 +113,7 @@ export class TenantsListComponent implements OnInit {
       { label: 'Tenants' },
     ]);
     this.loadTenants();
+    this.loadRubros();
   }
 
   private loadTenants(): void {
@@ -119,8 +124,16 @@ export class TenantsListComponent implements OnInit {
     });
   }
 
+  private loadRubros(): void {
+    this.api.post<ApiResp<{ rows: RubroItem[] }>>('/admin/forms/rubro/execute', {
+      action: 'SELECT', limit: 100, offset: 0,
+    }).subscribe({
+      next: (res) => this.rubros.set(res.data.rows ?? []),
+    });
+  }
+
   openCreate(): void {
-    this.form.reset({ maxUsers: 5 });
+    this.form.reset({ maxUsers: 5, rubroId: null });
     this.showModal.set(true);
   }
 
@@ -137,6 +150,7 @@ export class TenantsListComponent implements OnInit {
       name: v.name,
       contactEmail: v.contactEmail || undefined,
       maxUsers: Number(v.maxUsers),
+      rubroId: v.rubroId ?? undefined,
       adminEmail: v.adminEmail,
       adminPassword: v.adminPassword,
       adminFirstName: v.adminFirstName,

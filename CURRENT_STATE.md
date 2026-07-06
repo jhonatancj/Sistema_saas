@@ -8,6 +8,44 @@
 
 ## Último trabajo realizado
 
+**Catálogo de Rubros + Categorías/Unidades de medida dinámicas** (ver
+`docs/adr/015-catalogo-rubro-categorias-unidades.md`, feature grande de la
+sesión). Resumen:
+- `rubro` — form nuevo (`public.forms`, admin-only, sin módulo wrapper, link
+  fijo "Rubros" en el sidebar admin). 4 filas sembradas: `tienda_barrio`/
+  `moda`/`ferreteria`/`belleza`.
+- `tenants.rubro_id` / `modules.rubro_id` — columnas nuevas, sin FK real
+  (`tbl_rubro` la crea el motor en runtime). Módulos `INVENTARIO_*` ya
+  taggeados con su rubro; `CLIENTES`/`PROVEEDORES`/`CATEGORIAS`/
+  `UNIDADES_MEDIDA` quedan `NULL` (universal/core).
+- `CATEGORIAS`/`UNIDADES_MEDIDA` — módulos core nuevos, una sola tabla
+  compartida cada uno (filas de los 4 rubros mezcladas en `public`, cada
+  fila con su propio campo `rubro`). Sembradas con las categorías/unidades
+  que antes eran opciones fijas de los formularios de producto.
+- **Primer caso de sync de DATOS (no solo definición) del sistema**:
+  `ModulesService.syncCatalogDataForRubro()`, corre al final de todo
+  `syncPublicModulesToTenant()` — copia a `{tenant}.tbl_categorias`/
+  `tbl_unidades_medida` solo las filas del rubro del tenant. Verificado
+  end-to-end con un tenant de prueba (rubro `moda` → exactamente sus 6
+  categorías, cero de otros rubros; tenant borrado tras verificar).
+- `categoria`/`unidad` de `producto_barrio`/`producto_moda`/
+  `producto_ferreteria` migrados de `options` fijas a `optionsSource`
+  dinámico (`'categorias'`/`'unidades_medida'`).
+- `RemoteFormOptionsService` (nuevo) reemplaza `FormOptionsMockService`
+  (borrado) — implementación real de `FormOptionsProvider` que reusa el
+  endpoint `execute` existente (`endpointId` = slug del form), sin backend
+  nuevo.
+- UI: selector de rubro al crear un tenant (`tenants-list`); modal de sync
+  (`tenant-detail`) filtra módulos por `rubro_id` del tenant y muestra su
+  rubro; `admin-modules` permite asignar `rubro_id` a un módulo.
+- `tsc --noEmit`/`ng build` (Front) y `tsc --noEmit`/`nest build` (Back)
+  limpios. **Nota aparte, no relacionada al código**: durante la
+  verificación, `ng build` falló por un symlink roto en el store de pnpm
+  (`parse5-html-rewriting-stream`, dependencia transitiva de
+  `@angular/build`) — se resolvió con `rm -rf node_modules && pnpm install`.
+  No fue causado por ningún cambio de esta sesión (no se tocó
+  `package.json`/lockfile); si vuelve a pasar, ese es el fix.
+
 **Soporte para el tipo de campo `currency` de `@jhonatancj/dforms`** (el
 usuario es el autor de la librería, agregó el componente en `^1.3.2` — ya
 instalado, `NodeType` incluye `'currency'` en el `.d.ts`). Motor y builder
@@ -323,22 +361,28 @@ y fue corregida esta sesión.
 
 ## Próximas prioridades
 
-1. Catálogo público completo de los 4 rubros (moda, ferretería, barbería/
+1. `tenant_demo`/`tenant_acme` no tienen `rubro_id` (son anteriores a este
+   feature) — decidir si asignarles uno (`demo` calza con `tienda_barrio`,
+   ya tiene ese catálogo sincronizado) para que el modal de sync los filtre
+   correctamente y puedan recibir Categorías/Unidades vía
+   `syncCatalogDataForRubro()`.
+2. Catálogo público completo de los 4 rubros (moda, ferretería, barbería/
    salón, tienda de barrio) — falta sincronizar cada uno hacia el tenant
    real que corresponda cuando exista (hoy solo `tienda de barrio` está
    sincronizado, a `tenant_demo`).
-2. Diseñar en conjunto con el usuario los 2 formularios complejos que
+3. Diseñar en conjunto con el usuario los 2 formularios complejos que
    quedaron fuera a propósito: ventas con carrito multi-línea + descuento de
    stock, y agenda de citas para barbería/salón (ambos requieren tabla+SP a
    mano, no solo el builder — ver ADR-013).
-3. Verificación visual en navegador de todo lo agregado recientemente:
-   eliminar formulario desde el builder, modal de selección de módulos al
-   sincronizar, ofuscación de code/slug en la URL, catálogo de los 4 rubros,
+4. Verificación visual en navegador de todo lo agregado recientemente:
+   catálogo de Rubros/Categorías/Unidades con selects dinámicos, selector de
+   rubro al crear tenant, eliminar formulario desde el builder, modal de
+   selección de módulos al sincronizar, ofuscación de code/slug en la URL,
    sidebar admin dinámico, builder en modo público, `/admin/modules`, modal
    "Nuevo tenant", buscador + paginación de la grid, modo de visualización
    modal/inline + ancho custom.
-4. Decidir `docker-compose.prod.yml` (pendiente desde el inicio del proyecto).
-5. Decidir sobre Redis: quitarlo del compose o implementar su uso real.
-6. Fase futura ya acordada con el usuario: vista para migrar los *datos*
+5. Decidir `docker-compose.prod.yml` (pendiente desde el inicio del proyecto).
+6. Decidir sobre Redis: quitarlo del compose o implementar su uso real.
+7. Fase futura ya acordada con el usuario: vista para migrar los *datos*
    (tabla + filas) de un formulario probado en `public` hacia un tenant real
    elegido.

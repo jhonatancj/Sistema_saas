@@ -12,7 +12,8 @@ interface ApiResp<T> { success: boolean; data: T; message: string; errors: strin
 
 interface FormAccessConfig { mode: 'all' | 'restricted'; allowed_slugs: string[]; }
 interface CatalogFormItem { id: number; slug: string; name: string; icon?: string; }
-interface PublicModuleItem { id: number; name: string; code: string; icon?: string; }
+interface PublicModuleItem { id: number; name: string; code: string; icon?: string; rubro_id?: number | null; }
+interface RubroItem { id: number; nombre: string; code: string; }
 
 interface AdminTenant {
   id: string;
@@ -23,6 +24,7 @@ interface AdminTenant {
   trialEndsAt?: string;
   createdAt: string;
   contactEmail?: string;
+  rubro_id?: number | null;
 }
 
 interface TenantUser {
@@ -91,13 +93,28 @@ export class TenantDetailComponent implements OnInit {
   readonly publicModules = signal<PublicModuleItem[]>([]);
   readonly selectedModuleIds = signal<number[]>([]);
   readonly savingSync = signal(false);
+  readonly rubros = signal<RubroItem[]>([]);
+
+  readonly tenantRubroName = () => {
+    const rubroId = this.tenant()?.rubro_id;
+    if (!rubroId) return null;
+    return this.rubros().find((r) => r.id === rubroId)?.nombre ?? null;
+  };
 
   openSyncModal(): void {
     this.showSyncModal.set(true);
     this.loadingPublicModules.set(true);
     this.api.get<ApiResp<PublicModuleItem[]>>('/modules/public').subscribe({
       next: (res) => {
-        const modules = res.data ?? [];
+        const tenantRubroId = this.tenant()?.rubro_id;
+        // Un módulo sin rubro_id es universal/core (CLIENTES, PROVEEDORES,
+        // CATEGORIAS, UNIDADES_MEDIDA) — se ofrece siempre. Un módulo con
+        // rubro_id solo se ofrece si coincide con el rubro del tenant (ver
+        // docs/adr/015-catalogo-rubro-categorias-unidades.md). Tenants sin
+        // rubro (viejos, ej. demo/acme) ven solo los módulos universales.
+        const modules = (res.data ?? []).filter(
+          (m) => m.rubro_id == null || m.rubro_id === tenantRubroId,
+        );
         this.publicModules.set(modules);
         // Todo preseleccionado por default — conserva el comportamiento
         // histórico de "sincronizar todo"; el admin desmarca lo que no quiere.
@@ -186,6 +203,12 @@ export class TenantDetailComponent implements OnInit {
     });
     this.api.get<ApiResp<CatalogFormItem[]>>('/admin/forms').subscribe({
       next: (res) => this.catalogForms.set(res.data ?? []),
+      error: () => {},
+    });
+    this.api.post<ApiResp<{ rows: RubroItem[] }>>('/admin/forms/rubro/execute', {
+      action: 'SELECT', limit: 100, offset: 0,
+    }).subscribe({
+      next: (res) => this.rubros.set(res.data.rows ?? []),
       error: () => {},
     });
   }

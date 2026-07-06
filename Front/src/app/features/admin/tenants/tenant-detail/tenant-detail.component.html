@@ -30,6 +30,10 @@
           <span class="info-row__label">Max usuarios</span>
           <span class="info-row__value">{{ t.max_users }}</span>
         </div>
+        <div class="info-row">
+          <span class="info-row__label">Rubro</span>
+          <span class="info-row__value">{{ tenantRubroName() ?? '— (sin asignar)' }}</span>
+        </div>
         @if (t.contactEmail) {
           <div class="info-row">
             <span class="info-row__label">Email contacto</span>

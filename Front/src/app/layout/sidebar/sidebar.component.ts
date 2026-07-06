@@ -21,6 +21,7 @@ export interface NavItem {
   label: string;
   icon: string;
   route?: string;
+  queryParams?: Record<string, string>;
   children?: NavChild[];
   badge?: number;
   exact?: boolean;
@@ -63,6 +64,12 @@ export class SidebarComponent implements OnInit {
       })),
     })),
     { label: 'Modulos', icon: 'fa-solid fa-table-cells', route: '/admin/modules', exact: false },
+    // Catálogo de sistema (no un módulo dinámico) — nunca se sincroniza a
+    // ningún tenant, ver docs/adr/015-catalogo-rubro-categorias-unidades.md.
+    {
+      label: 'Rubros', icon: 'fa-solid fa-tags', route: '/admin/m',
+      queryParams: { data: encodeFormRoute('SISTEMA', 'rubro') }, exact: false,
+    },
     { label: 'Builder', icon: 'fa-solid fa-pen-ruler', route: '/admin/builder', exact: false },
     { label: 'Seguridad', icon: 'fa-solid fa-lock', route: '/admin/settings/security', exact: false },
   ]);

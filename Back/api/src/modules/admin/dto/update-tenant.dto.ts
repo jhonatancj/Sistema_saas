@@ -9,4 +9,7 @@ export class UpdateTenantDto {
 
   @ApiPropertyOptional({ example: '2026-12-31T00:00:00Z', description: 'Fecha de expiración del período de prueba (ISO 8601)' })
   trialEndsAt?: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Id de public.tbl_rubro — a qué rubro/vertical pertenece el tenant' })
+  rubroId?: number;
 }

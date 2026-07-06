@@ -56,6 +56,20 @@
           </div>
         </div>
 
+        <div class="field">
+          <label class="field__lbl">Rubro *</label>
+          <select class="field__inp" formControlName="rubroId">
+            <option [ngValue]="null" disabled>Selecciona un rubro</option>
+            @for (r of rubros(); track r.id) {
+            <option [ngValue]="r.id">{{ r.nombre }}</option>
+            }
+          </select>
+          @if (form.get('rubroId')?.invalid && form.get('rubroId')?.touched) {
+          <span class="field__err">Selecciona un rubro</span>
+          }
+          <span class="field__hint">Determina qué categorías/unidades de medida recibe este tenant al sincronizar.</span>
+        </div>
+
         <hr />
         <p class="field__lbl">Usuario administrador inicial</p>
 
