@@ -13,6 +13,7 @@ minimumReleaseAgeExclude:
   - '@jhonatancj/dforms@1.3.2'
   - '@jhonatancj/dforms@1.3.3'
   - '@jhonatancj/dforms@1.3.4'
+  - '@jhonatancj/dforms@1.3.6'
 peerDependencyRules:
   allowedVersions:
     'ngx-toastr>@angular/common': '22'
