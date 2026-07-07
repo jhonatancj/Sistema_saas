@@ -513,7 +513,7 @@ export class AdminBuilderComponent implements OnInit {
           continue;
         }
         if (node.children?.length) result.push(...extract(node.children));
-        if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date'].includes(node.type)) {
+        if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date', 'input-lupa'].includes(node.type)) {
           result.push({ key: node.key, label: node.label ?? node.key, type: node.type });
         }
       }

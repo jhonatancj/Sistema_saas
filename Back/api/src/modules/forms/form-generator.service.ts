@@ -42,7 +42,7 @@ export class FormGeneratorService {
       if (node.children?.length) {
         fields.push(...this.extractFields(node.children));
       }
-      if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date'].includes(node.type)) {
+      if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date', 'input-lupa'].includes(node.type)) {
         fields.push({
           key: node.key,
           type: node.type,
@@ -68,6 +68,7 @@ export class FormGeneratorService {
       case 'select': return 'VARCHAR(100)';
       case 'checkbox': return 'BOOLEAN';
       case 'image': return 'TEXT';
+      case 'input-lupa': return 'VARCHAR(255)';
       default: return 'TEXT';
     }
   }

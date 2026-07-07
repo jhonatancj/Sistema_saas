@@ -8,6 +8,42 @@
 
 ## Último trabajo realizado
 
+**Fase 1 del gap de modelo de dominio: `input-lupa` + Sucursales + Empleados
+enriquecido** (ver `docs/adr/019-input-lupa-relacion-real.md` y
+`docs/plan-ventas-agenda.md` sección 3) — pedido del usuario tras señalar que
+los formularios eran muy simples y faltaba el concepto de sucursal/relación
+de empleados. Resumen:
+- **Motor**: `input-lupa` (tipo de campo nuevo publicado por el usuario en
+  `@jhonatancj/dforms 1.3.4`, ya instalado) reconocido en `extractFields()`/
+  `toDbType()` de `FormGeneratorService` (`VARCHAR(255)`) —
+  `castField()` no necesitó cambio (su `default` ya trata texto plano
+  correctamente). Builder (`extractFieldsFromSchema()` en
+  `builder.component.ts`) también lo reconoce para la pestaña Grid.
+- **Catálogo `sucursales` nuevo** (core/universal): `nombre`/`codigo`
+  (unique)/`ciudad`/`telefono`/`direccion`/`activo`. Módulo `SUCURSALES`
+  (`rubro_id` NULL, roles ADMIN full / SALES+WAREHOUSE solo ver), 3
+  sucursales de ejemplo sembradas (Sede Principal/Norte/Cartagena).
+- **`empleados` enriquecido**: agregó `documento`/`email`/`cargo` (select)/
+  `fecha_ingreso` (date)/`sucursal_nombre` (**`input-lupa`** hacia
+  `sucursales`, autocompleta `sucursal_id` oculto vía `assignments`) —
+  `ALTER TABLE` no destructivo (ADR-003), SP regenerado, `grid_config`
+  actualizado, los 3 empleados de ejemplo actualizados con datos reales
+  (incluida su sucursal). Verificado contra la DB real: cada empleado quedó
+  con `sucursal_nombre`/`sucursal_id` correctos (INSERT/UPDATE reales vía
+  `execute()`, no simulado).
+- Decisión de alcance tomada con el usuario: **stock global**, sucursal
+  como etiqueta/dato (no hay tabla de stock por bodega en esta fase — evita
+  reescribir el SP de ventas).
+- Patrón fijado en ADR-019 para replicar `input-lupa` en el resto del
+  catálogo (Fases 2-4 documentadas en `docs/plan-ventas-agenda.md`, no
+  ejecutadas todavía): `cita`/`venta_barrio` con relaciones reales
+  (cliente/empleado), `producto_*` con proveedor vía lupa, módulo de
+  Compras nuevo.
+- `tsc --noEmit`/`nest build` (Back, el único error de tsc es en 2 `.spec.ts`
+  ya rotos preexistentes en `main` — `nest build` los excluye) y
+  `tsc --noEmit`/`ng build` (Front) limpios. **Sin verificación visual en
+  navegador** (Playwright no instalado en este entorno).
+
 **Infraestructura de producción (Dockerfiles + `docker-compose.prod.yml`)**
 — nuevo `Back/api/Dockerfile` (multi-stage NestJS) y `Front/Dockerfile`
 (multi-stage Angular SPA → nginx, `Front/nginx.conf` con fallback de SPA +
@@ -563,6 +599,13 @@ y fue corregida esta sesión.
 
 ## Próximas prioridades
 
+0. **Fases 2-4 del gap de modelo de dominio** (ver
+   `docs/plan-ventas-agenda.md` sección 3 y ADR-019): reemplazar
+   `select`+`optionsSource` por `input-lupa` en `cita` (cliente/empleado) y
+   `venta_barrio` (cliente/vendedor + etiqueta de sucursal); enriquecer
+   `producto_*` (proveedor vía lupa, marca, stock mínimo); módulo nuevo de
+   Compras/entrada de mercancía (espejo de Ventas, suma stock). Ninguna
+   sincronizada a tenant todavía — sigue en el catálogo `public`.
 1. `tenant_acme` sigue sin `rubro_id` (`demo` ya se le asignó
    `tienda_barrio` esta sesión) — decidir si acme necesita uno cuando se le
    sincronice algo.

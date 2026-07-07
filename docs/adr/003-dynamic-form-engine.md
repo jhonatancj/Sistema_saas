@@ -43,9 +43,10 @@ ver ADR-009.
 `column`/`stepper`/`step` nunca generan columna): `text`, `number`,
 `select`, `textarea`, `checkbox`, `image`, `currency`, `date` (mapea a
 columna `DATE`, cast `::DATE` — agregado para Agenda de citas, ver
-`docs/plan-ventas-agenda.md`). Agregar soporte a un tipo nuevo de la
-librería (ej. `radio`, `email`, `password`, ya exportados por dforms pero
-sin mapear acá) requiere tocar 3 puntos en
+`docs/plan-ventas-agenda.md`), `input-lupa` (mapea a `VARCHAR(255)`, sin
+cast especial — ver `docs/adr/019-input-lupa-relacion-real.md`). Agregar
+soporte a un tipo nuevo de la librería (ej. `radio`, `email`, `password`, ya
+exportados por dforms pero sin mapear acá) requiere tocar 3 puntos en
 `form-generator.service.ts`: la lista de tipos reconocidos en
 `extractFields()`, el `case` de `toDbType()` (tipo SQL de la columna) y el
 `case` de `castField()` (cómo castear el JSONB del SP al tipo de columna) —

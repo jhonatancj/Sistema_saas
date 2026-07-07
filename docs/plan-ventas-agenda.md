@@ -278,4 +278,68 @@ el mismo nombre exacto, `optionsSource` no los distingue. Aceptable para
 esta primera versión (mismo criterio que ya se aceptó para Categorías/
 Unidades); si se vuelve un problema real, la solución es pasar a
 `valueKey:'id'` + un `grid_query` con JOIN para mostrar el nombre en la
-grid en vez del id crudo (mecanismo ya documentado en ADR-005).
+grid en vez del id crudo (mecanismo ya documentado en ADR-005). **Resuelta
+de fondo por `input-lupa`** (ver ADR-019) — queda como candidato de
+reemplazo en la Fase 2 de abajo.
+
+---
+
+## 3. Modelo de dominio — Sucursales + `input-lupa` (gap detectado, sesión nueva)
+
+El catálogo quedó deliberadamente mínimo para arrancar producción, y el
+usuario señaló (correctamente) que los formularios son muy simples y que
+faltaba un concepto central: **sucursales**, y que `empleados` no tenía
+ninguna relación real con nada. El usuario también publicó `input-lupa` en
+`@jhonatancj/dforms` (`1.3.4`, ya instalado) — ver ADR-019 para el patrón
+completo. Este bloque documenta el plan de cierre de ese gap.
+
+**Decisión de alcance (tomada con el usuario):** stock **global**, la
+sucursal se registra como dato/etiqueta en empleado/venta — no hay tabla de
+stock por bodega en esta fase (descarta rework del SP de ventas).
+
+### Fase 1 — Fundamentos (hecha esta sesión)
+- [x] Motor: `input-lupa` reconocido en `extractFields()`/`toDbType()` de
+      `form-generator.service.ts` (`VARCHAR(255)`); `castField()` no
+      necesitó cambio. Builder: `extractFieldsFromSchema()` en
+      `builder.component.ts` también lo reconoce (columna de grid).
+- [x] Catálogo `sucursales` (core/universal): `nombre`/`codigo`(unique)/
+      `ciudad`/`telefono`/`direccion`/`activo`. Módulo `SUCURSALES`
+      (`rubro_id` NULL, `tenant_code: 'sucursales'`), roles ADMIN full /
+      SALES+WAREHOUSE solo ver, `grid_config` poblado, 3 sucursales de
+      ejemplo sembradas.
+- [x] `empleados` enriquecido: `documento`/`email`/`cargo`(select)/
+      `fecha_ingreso`(date)/`sucursal_nombre`(**input-lupa** → sucursales,
+      autocompleta `sucursal_id` oculto). `ALTER TABLE` no destructivo
+      (ADR-003), SP regenerado, `grid_config` actualizado, los 3 empleados
+      de ejemplo actualizados con datos reales (incluida su sucursal).
+      Verificado contra la DB real: `sucursal_nombre`/`sucursal_id`
+      correctos para los 3 (`execute` INSERT/UPDATE reales, no simulado).
+- [x] ADR-019 (patrón `input-lupa` para relaciones reales) + nota en ADR-003.
+- [x] `tsc --noEmit`/`nest build` (Back) y `tsc --noEmit`/`ng build` (Front)
+      limpios. **Sin verificación visual en navegador** (Playwright no
+      instalado en este entorno).
+
+### Fase 2 — Reemplazar selects-por-nombre por relaciones reales (pendiente)
+- `cita`: `cliente`/`empleado` de `select`+`optionsSource` (guardan nombre) a
+  `input-lupa` (id real + nombre denormalizado, ver limitación de arriba ya
+  resuelta por ADR-019). `servicio` puede quedar como está si no hay
+  duplicados reales.
+- `venta_barrio` (encabezado): `cliente` y `vendedor/empleado` vía
+  `input-lupa`; agregar `sucursal_nombre`/`sucursal_id` como etiqueta
+  (decisión de stock global). El producto dentro de `line-items` sigue
+  resolviéndose con la columna `select`+`optionsFillMap` de dforms —
+  `input-lupa` es un tipo de campo de formulario, no una columna de
+  `line-items`, no aplica ahí.
+
+### Fase 3 — Enriquecer los formularios "muy simples" (pendiente)
+- `producto_*`: `proveedor` vía `input-lupa` (hoy `proveedor_id` ya es
+  `relation` real pero sin buscador cómodo — evaluar si migrar o dejar
+  como está), agregar `marca`/`stock_minimo`/`ubicacion`.
+- Nuevo módulo **Compras / Entrada de mercancía** (espejo de Ventas que
+  *aumenta* stock en vez de restarlo): proveedor vía `input-lupa`, líneas de
+  producto (`line-items`), SP a mano (`recreateSp:false`) que suma stock.
+  Cierra el ciclo compra→venta que hoy no existe.
+
+### Fase 4 — Multi-rubro + sync a tenant (ya documentado arriba, sin cambios)
+- `venta_moda`/`venta_ferreteria`/`venta_belleza`, sincronizar el rubro real
+  a su tenant, calendario visual de Agenda + validación de doble-reserva.
