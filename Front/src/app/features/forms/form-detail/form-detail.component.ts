@@ -92,7 +92,8 @@ export class FormDetailComponent {
         width: c.width || 150,
         filter: UNFILTERABLE_FIELD_TYPES.has(c.field_type)
           ? false
-          : NUMERIC_FIELD_TYPES.has(c.field_type) ? 'agNumberColumnFilter' : 'agTextColumnFilter',
+          : NUMERIC_FIELD_TYPES.has(c.field_type) ? 'agNumberColumnFilter'
+          : c.field_type === 'date' ? 'agDateColumnFilter' : 'agTextColumnFilter',
         cellRenderer: c.field_type === 'image' ? (params: any) => {
           if (!params.value) return '';
 
@@ -207,10 +208,45 @@ export class FormDetailComponent {
     this.modalMode.set('create');
   }
 
+  // Un form con un campo 'line-items' (ver docs/adr/017-tabla-detalle-line-items.md)
+  // guarda sus líneas en una tabla de detalle aparte — la fila que trae la
+  // grid (selectPaged(), solo columnas del encabezado) no las incluye. Para
+  // esos forms, reabrir un registro pide SELECT_BY_ID (sí pasa por el SP,
+  // que devuelve el encabezado + su array de líneas anidado) antes de abrir
+  // el modal. Genérico: cualquier form futuro con line-items lo hereda gratis.
+  private hasLineItemsField(schema: BuilderSchema | null): boolean {
+    if (!schema) return false;
+    const walk = (nodes: any[]): boolean =>
+      nodes.some((n) => n.type === 'line-items' || (n.children?.length && walk(n.children)));
+    return walk(schema.root ?? []);
+  }
+
   openEdit(row: any): void {
     this.editingRow.set(row);
-    this.submission.set({ data: row });
-    this.modalMode.set('edit');
+
+    if (!this.hasLineItemsField(this.form()?.json_form ?? null)) {
+      this.submission.set({ data: row });
+      this.modalMode.set('edit');
+      return;
+    }
+
+    // <d-form-render> solo se monta vía @if (modalMode()) — si seteamos
+    // modalMode ANTES de tener el detalle, el campo line-items se
+    // inicializa vacío y una actualización posterior de `submission` no lo
+    // vuelve a poblar (ya montado). Por eso se espera la respuesta completa
+    // de SELECT_BY_ID antes de abrir el modal, para que monte una sola vez
+    // con los datos ya completos.
+    this.api.post<ApiResp<any>>(`${this.formsBase()}/${this.slug()}/execute`, { action: 'SELECT_BY_ID', id: row.id })
+      .subscribe({
+        next: (res) => {
+          this.submission.set({ data: res.data ?? row });
+          this.modalMode.set('edit');
+        },
+        error: () => {
+          this.submission.set({ data: row });
+          this.modalMode.set('edit');
+        },
+      });
   }
 
   closeModal(): void {

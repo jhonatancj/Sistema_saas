@@ -73,6 +73,15 @@
   &--err { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 13.5px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

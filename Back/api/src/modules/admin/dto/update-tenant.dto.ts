@@ -12,4 +12,7 @@ export class UpdateTenantDto {
 
   @ApiPropertyOptional({ example: 1, description: 'Id de public.tbl_rubro — a qué rubro/vertical pertenece el tenant' })
   rubroId?: number;
+
+  @ApiPropertyOptional({ example: false, description: 'Si true, permite editar/eliminar ventas ya creadas (restituyendo stock). Default: false (inmutables, como una factura real).' })
+  ventasEditable?: boolean;
 }

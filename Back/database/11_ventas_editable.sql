@@ -1,0 +1,11 @@
+-- Controla si un tenant puede editar/eliminar una venta ya creada
+-- (restituyendo el stock descontado) o si las ventas son inmutables una
+-- vez guardadas (comportamiento por defecto, como una factura real — ver
+-- docs/adr/017-tabla-detalle-line-items.md). El SP a mano de cada
+-- venta_<rubro> lee esta columna vía
+-- `SELECT ventas_editable FROM public.tenants WHERE schema_name = current_schema()`
+-- (cross-schema, misma DB) para decidir si permite UPDATE/DELETE.
+--
+-- El sandbox `public` del propio super admin no tiene fila en `tenants` —
+-- se trata siempre como editable (ver COALESCE en el SP).
+ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS ventas_editable BOOLEAN NOT NULL DEFAULT FALSE;

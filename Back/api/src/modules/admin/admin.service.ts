@@ -79,7 +79,7 @@ export class AdminService {
         const result = await this.pool.query(
             `SELECT id, slug, name, trade_name, tax_id, country_code, timezone,
               locale, status, schema_name, contact_email, contact_phone,
-              logo_url, max_users, trial_ends_at, rubro_id, created_at
+              logo_url, max_users, trial_ends_at, rubro_id, ventas_editable, created_at
        FROM public.tenants WHERE id = $1 AND deleted_at IS NULL`,
             [id],
         );
@@ -92,17 +92,19 @@ export class AdminService {
         maxUsers?: number;
         trialEndsAt?: string;
         rubroId?: number;
+        ventasEditable?: boolean;
     }) {
         const result = await this.pool.query(
             `UPDATE public.tenants SET
-        status        = COALESCE($1, status),
-        max_users     = COALESCE($2, max_users),
-        trial_ends_at = COALESCE($3::TIMESTAMPTZ, trial_ends_at),
-        rubro_id      = COALESCE($4, rubro_id),
-        updated_at    = NOW()
-       WHERE id = $5 AND deleted_at IS NULL
-       RETURNING id, slug, name, status, max_users, trial_ends_at, rubro_id`,
-            [dto.status ?? null, dto.maxUsers ?? null, dto.trialEndsAt ?? null, dto.rubroId ?? null, id],
+        status          = COALESCE($1, status),
+        max_users       = COALESCE($2, max_users),
+        trial_ends_at   = COALESCE($3::TIMESTAMPTZ, trial_ends_at),
+        rubro_id        = COALESCE($4, rubro_id),
+        ventas_editable = COALESCE($5, ventas_editable),
+        updated_at      = NOW()
+       WHERE id = $6 AND deleted_at IS NULL
+       RETURNING id, slug, name, status, max_users, trial_ends_at, rubro_id, ventas_editable`,
+            [dto.status ?? null, dto.maxUsers ?? null, dto.trialEndsAt ?? null, dto.rubroId ?? null, dto.ventasEditable ?? null, id],
         );
         if ((result.rowCount ?? 0) === 0) throw new NotFoundException('Tenant no encontrado');
         return result.rows[0];

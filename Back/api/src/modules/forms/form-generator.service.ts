@@ -15,6 +15,16 @@ interface ExtractedField {
   };
 }
 
+// Columna de una tabla de detalle (nodo 'line-items' de @jhonatancj/dforms
+// >=1.3.3 — ver docs/adr/017-tabla-detalle-line-items.md). Tipado laxo a
+// propósito: viene tal cual del JSON del builder, mismo criterio que
+// ExtractedField.relation.
+interface LineItemColumn {
+  key: string;
+  type: string; // 'text' | 'number' | 'select' | 'currency' | 'calculated'
+  relation?: { form: string; keyValue: string } | null;
+}
+
 @Injectable()
 export class FormGeneratorService {
   constructor(@Inject(PG_MASTER_POOL) private readonly pool: Pool) { }
@@ -32,7 +42,7 @@ export class FormGeneratorService {
       if (node.children?.length) {
         fields.push(...this.extractFields(node.children));
       }
-      if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency'].includes(node.type)) {
+      if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date'].includes(node.type)) {
         fields.push({
           key: node.key,
           type: node.type,
@@ -54,6 +64,7 @@ export class FormGeneratorService {
       case 'textarea': return 'TEXT';
       case 'number': return 'NUMERIC(12,2)';
       case 'currency': return 'NUMERIC(12,2)';
+      case 'date': return 'DATE';
       case 'select': return 'VARCHAR(100)';
       case 'checkbox': return 'BOOLEAN';
       case 'image': return 'TEXT';
@@ -101,6 +112,84 @@ CREATE TABLE IF NOT EXISTS ${tableName} (
       return `ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${f.key} ${dbType}${defaults};`;
     });
     return alters.join('\n');
+  }
+
+  // ── 3c. Detecta un nodo 'line-items' en el árbol del formulario (a lo
+  // sumo uno soportado por formulario) — igual que node.relation, sus
+  // columnas (node.lineItemColumns) vienen flat sobre el nodo, no anidadas
+  // bajo node.schema (así emite el builder real, verificado toda la
+  // sesión con node.relation/extractFields). Ver docs/adr/017.
+  findLineItemsNode(nodes: any[]): any | null {
+    for (const node of nodes) {
+      if (node.type === 'line-items') return node;
+      if (node.children?.length) {
+        const found = this.findLineItemsNode(node.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  private toDetailColumnDbType(col: LineItemColumn): string {
+    if (col.relation) return 'BIGINT';
+    switch (col.type) {
+      case 'text': return 'VARCHAR(255)';
+      case 'number': return 'NUMERIC(12,2)';
+      case 'currency': return 'NUMERIC(12,2)';
+      case 'calculated': return 'NUMERIC(12,2)';
+      case 'select': return 'VARCHAR(100)';
+      default: return 'TEXT';
+    }
+  }
+
+  // ── 3d. DDL de la tabla de detalle — solo la estructura fija (id, FK al
+  // encabezado, created_at). Las columnas de line-items siempre se agregan
+  // vía buildDetailAlterTableDDL (ADD COLUMN IF NOT EXISTS), sea la
+  // primera vez (tabla recién creada, sin esas columnas todavía) o en un
+  // reprocesamiento (tabla ya existente) — un solo camino idempotente en
+  // vez de las 2 ramas que sí hacen falta para el encabezado (que además
+  // soporta bind-to-existing).
+  buildDetailTableDDL(schema: string, slug: string): string {
+    const tableName = `${schema}.tbl_${slug}_detalle`;
+    const fkColumn = `${slug}_id`;
+    return `
+CREATE TABLE IF NOT EXISTS ${tableName} (
+  id          BIGINT       NOT NULL GENERATED ALWAYS AS IDENTITY,
+  ${fkColumn.padEnd(20)} BIGINT NOT NULL REFERENCES ${schema}.tbl_${slug}(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  CONSTRAINT pk_tbl_${slug}_detalle PRIMARY KEY (id)
+);`.trim();
+  }
+
+  // FK real por columna con `relation` (ej. "producto" de una línea de
+  // venta) — Postgres no soporta `ADD CONSTRAINT IF NOT EXISTS`, así que la
+  // idempotencia se resuelve a mano contra pg_constraint (con namespace,
+  // no alcanza con el nombre solo: dos schemas distintos pueden tener una
+  // constraint con el mismo nombre, ej. tenant_a y tenant_b con el mismo
+  // form). Mismo criterio de evolución que el resto del motor: nunca se
+  // quita/reemplaza una constraint existente, solo se agrega si falta.
+  buildDetailAlterTableDDL(schema: string, slug: string, columns: LineItemColumn[]): string {
+    const tableName = `${schema}.tbl_${slug}_detalle`;
+    const statements: string[] = [];
+    for (const c of columns) {
+      if (!c.key) continue;
+      statements.push(`ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${c.key} ${this.toDetailColumnDbType(c)};`);
+      if (c.relation) {
+        const constraintName = `fk_tbl_${slug}_detalle_${c.key}`;
+        statements.push(`
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint con
+    JOIN pg_namespace ns ON ns.oid = con.connamespace
+    WHERE con.conname = '${constraintName}' AND ns.nspname = '${schema}'
+  ) THEN
+    ALTER TABLE ${tableName} ADD CONSTRAINT ${constraintName}
+      FOREIGN KEY (${c.key}) REFERENCES ${schema}.tbl_${c.relation.form}(${c.relation.keyValue});
+  END IF;
+END $$;`.trim());
+      }
+    }
+    return statements.join('\n');
   }
 
   // ── 4. Genera el SP único con p_action ───────────────────────────
@@ -207,6 +296,7 @@ $$ LANGUAGE plpgsql;`.trim();
     switch (field.type) {
       case 'number': return `(${raw})::NUMERIC`;
       case 'currency': return `(${raw})::NUMERIC`;
+      case 'date': return `(${raw})::DATE`;
       case 'checkbox': return `(${raw})::BOOLEAN`;
       default: return raw;
     }
@@ -303,6 +393,20 @@ $$ LANGUAGE plpgsql;`.trim();
       hasTable = true;
     }
 
+    // Tabla de detalle (nodo 'line-items') — solo si el encabezado se
+    // generó por este motor (no bindeado a una tabla existente, ver
+    // docs/adr/017-tabla-detalle-line-items.md).
+    const lineItemsNode = this.findLineItemsNode(dto.jsonForm.root);
+    if (lineItemsNode && !boundToExisting) {
+      await this.pool.query(this.buildDetailTableDDL(schema, dto.slug));
+      const detailAlterDDL = this.buildDetailAlterTableDDL(
+        schema, dto.slug, lineItemsNode.lineItemColumns ?? [],
+      );
+      if (detailAlterDDL) {
+        await this.pool.query(detailAlterDDL);
+      }
+    }
+
     const recreateSp = dto.recreateSp ?? true;
     const effectiveSpName = dto.spName || `sp_${dto.slug}`;
     let hasSp = exists ? prev.has_sp : false;
@@ -396,6 +500,9 @@ $$ LANGUAGE plpgsql;`.trim();
         await client.query(`DROP FUNCTION IF EXISTS ${schema}.${spName}(VARCHAR, BIGINT, JSONB)`);
       }
       if (row.has_table && !boundToExisting) {
+        // La tabla de detalle (si existe, ver docs/adr/017) tiene FK hacia
+        // el encabezado — hay que dropearla primero o el DROP de abajo falla.
+        await client.query(`DROP TABLE IF EXISTS ${schema}.tbl_${slug}_detalle`);
         await client.query(`DROP TABLE IF EXISTS ${schema}.${tableName}`);
       }
 

@@ -25,6 +25,7 @@ interface AdminTenant {
   createdAt: string;
   contactEmail?: string;
   rubro_id?: number | null;
+  ventas_editable?: boolean;
 }
 
 interface TenantUser {
@@ -85,6 +86,7 @@ export class TenantDetailComponent implements OnInit {
     status: ['', Validators.required],
     maxUsers: [1, [Validators.required, Validators.min(1)]],
     trialEndsAt: [''],
+    ventasEditable: [false],
   });
 
   // ── Modal de selección de módulos a sincronizar ─────────────────────
@@ -183,6 +185,7 @@ export class TenantDetailComponent implements OnInit {
           status: res.data.status,
           maxUsers: res.data.max_users,
           trialEndsAt: res.data.trialEndsAt ? res.data.trialEndsAt.substring(0, 10) : '',
+          ventasEditable: res.data.ventas_editable ?? false,
         });
         this.loading.set(false);
       },
@@ -271,6 +274,7 @@ export class TenantDetailComponent implements OnInit {
     const body: Record<string, unknown> = {
       status: this.form.value.status,
       maxUsers: Number(this.form.value.maxUsers),
+      ventasEditable: !!this.form.value.ventasEditable,
     };
     if (this.form.value.trialEndsAt) body['trialEndsAt'] = this.form.value.trialEndsAt;
     this.api.patch<ApiResp<AdminTenant>>(`/admin/tenants/${this.tenantId}`, body).subscribe({

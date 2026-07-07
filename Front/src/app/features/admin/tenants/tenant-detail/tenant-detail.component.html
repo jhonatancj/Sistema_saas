@@ -34,6 +34,10 @@
           <span class="info-row__label">Rubro</span>
           <span class="info-row__value">{{ tenantRubroName() ?? '— (sin asignar)' }}</span>
         </div>
+        <div class="info-row">
+          <span class="info-row__label">Ventas editables</span>
+          <span class="info-row__value">{{ t.ventas_editable ? 'Sí' : 'No (inmutables, como una factura real)' }}</span>
+        </div>
         @if (t.contactEmail) {
           <div class="info-row">
             <span class="info-row__label">Email contacto</span>
@@ -68,6 +72,11 @@
             <input class="field__inp" formControlName="trialEndsAt" type="date" />
           </div>
         </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" formControlName="ventasEditable" />
+          Permitir editar/eliminar ventas ya creadas (restituye el stock descontado)
+        </label>
 
         <div class="actions">
           <button class="btn btn--primary" type="submit" [disabled]="saving()">

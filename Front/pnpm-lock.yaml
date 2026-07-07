@@ -33,8 +33,8 @@ importers:
         specifier: ^7.3.0
         version: 7.3.0
       '@jhonatancj/dforms':
-        specifier: ^1.3.2
-        version: 1.3.2(862904548242852232da6253d6305b76)
+        specifier: ^1.3.3
+        version: 1.3.3(862904548242852232da6253d6305b76)
       '@ng-select/ng-select':
         specifier: 23.2.0
         version: 23.2.0(@angular/common@22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(@angular/forms@22.0.5(@angular/common@22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(@angular/platform-browser@22.0.5(@angular/animations@22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2)))(@angular/common@22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2)))(rxjs@7.8.2))
@@ -913,8 +913,8 @@ packages:
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
     engines: {node: '>=18.0.0'}
 
-  '@jhonatancj/dforms@1.3.2':
-    resolution: {integrity: sha512-IGRXT2VxdLrvaAHENiFJN+ZoDIjatKvQCMkNaQmbkCVwuZlt+z+drldk1BvM9HVa1JfkqsQQOWe/IVgMxDAQfQ==, tarball: https://npm.pkg.github.com/download/@jhonatancj/dforms/1.3.2/26e82f8702cb39be23824ec938c13bffae6e6d9e}
+  '@jhonatancj/dforms@1.3.3':
+    resolution: {integrity: sha512-jaIJN9rSFQ3Fl9edL5KhnXxdzADrOsrisXfp1qmagLZwgxUkP7KuunjL0GLRfWan9Q6HkJL7rXMrL5To5cLDQg==, tarball: https://npm.pkg.github.com/download/@jhonatancj/dforms/1.3.3/5f9cd50942c77fc00a298edce0767f1d5b497876}
     peerDependencies:
       '@angular/cdk': '>=21.2.0 <23.0.0'
       '@angular/common': '>=21.2.0 <23.0.0'
@@ -3687,7 +3687,7 @@ snapshots:
     dependencies:
       minipass: 7.1.3
 
-  '@jhonatancj/dforms@1.3.2(862904548242852232da6253d6305b76)':
+  '@jhonatancj/dforms@1.3.3(862904548242852232da6253d6305b76)':
     dependencies:
       '@angular/cdk': 22.0.3(@angular/common@22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(@angular/platform-browser@22.0.5(@angular/animations@22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2)))(@angular/common@22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2)))(rxjs@7.8.2)
       '@angular/common': 22.0.5(@angular/core@22.0.5(@angular/compiler@22.0.5)(rxjs@7.8.2))(rxjs@7.8.2)

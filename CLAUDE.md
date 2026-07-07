@@ -159,6 +159,13 @@ ver `docs/adr/005-grid-datasource-architecture.md`.
   (`pool.connect()` + `BEGIN`/`COMMIT`/`ROLLBACK`) — un fallo a mitad de
   camino no puede dejar estado a medias. Excepción conocida y no resuelta:
   `FormGeneratorService.processForm()` (ver "Riesgos técnicos conocidos").
+- **Todo formulario nuevo creado en `public` se siembra con datos de ejemplo
+  reales** (vía `FormExecutorService.execute(schema, slug, 'INSERT', ...)`,
+  script Nest de un solo uso, borrado al terminar — mismo patrón que
+  cualquier otro script de este proyecto) antes de darlo por terminado —
+  nunca se deja una tabla recién generada vacía. Sirve para verlo con
+  contenido real en el builder/grid sin tener que cargar datos a mano desde
+  la UI.
 - **Sync público→tenant es copy-if-missing** para datos de formulario
   (`copyMissingFormsToTenant`) — nunca pisa un `json_form`/`grid_config` que
   el tenant ya haya personalizado. Los metadatos del módulo en sí (nombre,

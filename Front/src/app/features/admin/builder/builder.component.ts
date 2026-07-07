@@ -38,7 +38,7 @@ interface GridColumn {
   is_custom?: boolean;
 }
 
-const CUSTOM_COLUMN_TYPES = ['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency'];
+const CUSTOM_COLUMN_TYPES = ['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date'];
 @Component({
   selector: 'app-builder',
   standalone: true,
@@ -513,7 +513,7 @@ export class AdminBuilderComponent implements OnInit {
           continue;
         }
         if (node.children?.length) result.push(...extract(node.children));
-        if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency'].includes(node.type)) {
+        if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date'].includes(node.type)) {
           result.push({ key: node.key, label: node.label ?? node.key, type: node.type });
         }
       }

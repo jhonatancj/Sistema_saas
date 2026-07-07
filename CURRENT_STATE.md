@@ -8,6 +8,62 @@
 
 ## Último trabajo realizado
 
+**Ventas — `venta_barrio` implementado end-to-end** (primera variante,
+tienda de barrio), con dforms `1.3.3` (`line-items`+`relation`+`time`, ya
+instalado). Ver `docs/adr/017-tabla-detalle-line-items.md` para el diseño
+completo. Resumen:
+- `FormGeneratorService` ahora detecta un nodo `line-items`
+  (`findLineItemsNode()`) y genera además una tabla de detalle real, con
+  FK hacia el encabezado y hacia cualquier columna con `relation` (nuevo
+  método `buildDetailTableDDL`/`buildDetailAlterTableDDL`; `deleteForm()`
+  actualizado para dropear el detalle antes que el encabezado).
+- Setting nuevo `tenants.ventas_editable` (default `FALSE` — una venta es
+  inmutable una vez creada, como una factura real; configurable por
+  tenant desde el toggle en `tenant-detail`). El sandbox `public` del
+  super admin siempre se trata como editable.
+- `sp_venta_barrio` — SP a mano (`recreateSp:false`): valida stock
+  suficiente por línea (`FOR UPDATE`) y descuenta en el mismo loop que
+  inserta cada línea (evita subcontar si el mismo producto aparece 2
+  veces en la misma venta); `UPDATE`/`DELETE` restituyen stock y respetan
+  el guard de `ventas_editable`. **Gotcha real encontrado y corregido**:
+  `current_schema()` dentro de un SP siempre devuelve `'public'` en esta
+  app (nunca se hace `SET search_path`) — el schema tiene que ir
+  horneado como texto literal en el DDL del SP, no resuelto en runtime.
+  Documentado en `docs/known-bugs.md`.
+- `FormDetailComponent.openEdit()` ahora pide `SELECT_BY_ID` (pasa por el
+  SP) antes de abrir el modal cuando el form tiene un campo `line-items`
+  — `selectPaged()` (la grid) nunca trae el array de líneas anidado.
+  Genérico, no hardcodeado a Ventas.
+- Módulo `VENTAS_BARRIO` (rubro `tienda_barrio`), 2 ventas de ejemplo
+  sembradas. Verificado en vivo: stock antes/después correcto, y los 4
+  casos del guard `ventas_editable` (bloqueo, edición con
+  restitución+reaplique, eliminación con restitución completa).
+  **Sin sincronizar a ningún tenant todavía.**
+- Pendiente: replicar a `venta_moda`/`venta_ferreteria`/`venta_belleza`
+  (mecánico); sincronizar a un tenant real (requiere regenerar el SP con
+  el schema de ese tenant, ver gotcha de arriba). Plan actualizado en
+  `docs/plan-ventas-agenda.md`.
+- `tsc --noEmit`/`nest build` (backend) y `tsc --noEmit`/`ng build`
+  (frontend) limpios.
+
+**Agenda de citas (primera versión, CRUD simple)** — Agenda usa un catálogo
+nuevo `EMPLEADOS` (no reutiliza `{schema}.users`). Implementado: soporte de `date`
+en el motor (`extractFields`/`toDbType`/`castField` + espejo en el builder +
+`agDateColumnFilter`, faltaba desde ADR-003 — verificado con INSERT/SELECT
+real, cast `::DATE` correcto); catálogo `empleados` (core/universal, mismo
+patrón que Clientes/Proveedores); form `cita` + módulo `AGENDA` (rubro
+`belleza`) con `fecha`/`hora`/`cliente`/`servicio`/`empleado` (los 3 últimos
+`optionsSource`, no FK real — misma limitación aceptada que Categorías/
+Unidades) + `notas`. **Sin vista de calendario** (dforms no tiene ese
+componente todavía — CRUD simple por ahora) y **sin sincronizar a ningún
+tenant** (no hay tenant de rubro belleza todavía). `tsc --noEmit`/
+`nest build`/`ng build` limpios. Además, se sembraron datos de ejemplo en
+todos los forms de `public` que estaban vacíos (`clientes`, `proveedores`,
+`producto_barrio`, `producto_moda`, `producto_ferreteria`,
+`servicio_belleza`, `empleados`, `cita`) — nueva convención agregada a
+`CLAUDE.md`: todo formulario nuevo se siembra con datos antes de darlo por
+terminado, para poder verlo con contenido real sin cargar nada a mano.
+
 **Rediseño de `/admin/modules`** — la lista de módulos (panel izquierdo) se
 alargaba mucho verticalmente con cada módulo nuevo (fila plana, un renglón
 por módulo). Rediseñado siguiendo una referencia visual dada por el
@@ -462,10 +518,14 @@ y fue corregida esta sesión.
    salón, tienda de barrio) — falta sincronizar cada uno hacia el tenant
    real que corresponda cuando exista (hoy solo `tienda de barrio` está
    sincronizado, a `tenant_demo`).
-3. Diseñar en conjunto con el usuario los 2 formularios complejos que
-   quedaron fuera a propósito: ventas con carrito multi-línea + descuento de
-   stock, y agenda de citas para barbería/salón (ambos requieren tabla+SP a
-   mano, no solo el builder — ver ADR-013).
+3. Ventas: replicar `venta_barrio` (ya implementado y verificado, ver
+   `docs/adr/017-tabla-detalle-line-items.md`) a `venta_moda`/
+   `venta_ferreteria`/`venta_belleza` — mismo patrón, mecánico. Sincronizar
+   `venta_barrio` a un tenant real requiere regenerar el SP con el schema
+   de ese tenant (no un simple `copyMissingFormsToTenant`, ver ADR-017).
+   Agenda de citas ya tiene su primera versión (CRUD simple) — pendiente:
+   vista de calendario visual y validación de doble-reserva, ninguna
+   bloqueante.
 4. Verificación visual en navegador de todo lo agregado recientemente:
    catálogo de Rubros/Categorías/Unidades con selects dinámicos, selector de
    rubro al crear tenant, eliminar formulario desde el builder, modal de

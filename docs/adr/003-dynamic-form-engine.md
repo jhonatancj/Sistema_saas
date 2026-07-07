@@ -41,9 +41,11 @@ ver ADR-009.
 **Tipos de campo soportados** (deben coincidir con los `NodeType` de
 `@jhonatancj/dforms` que persisten datos — los de layout como `container`/
 `column`/`stepper`/`step` nunca generan columna): `text`, `number`,
-`select`, `textarea`, `checkbox`, `image`, `currency`. Agregar soporte a un
-tipo nuevo de la librería (ej. `date`, `radio`, `email`, `password`, ya
-exportados por dforms pero sin mapear acá) requiere tocar 3 puntos en
+`select`, `textarea`, `checkbox`, `image`, `currency`, `date` (mapea a
+columna `DATE`, cast `::DATE` — agregado para Agenda de citas, ver
+`docs/plan-ventas-agenda.md`). Agregar soporte a un tipo nuevo de la
+librería (ej. `radio`, `email`, `password`, ya exportados por dforms pero
+sin mapear acá) requiere tocar 3 puntos en
 `form-generator.service.ts`: la lista de tipos reconocidos en
 `extractFields()`, el `case` de `toDbType()` (tipo SQL de la columna) y el
 `case` de `castField()` (cómo castear el JSONB del SP al tipo de columna) —
