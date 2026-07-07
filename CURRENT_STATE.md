@@ -8,6 +8,58 @@
 
 ## Último trabajo realizado
 
+**Infraestructura de producción (Dockerfiles + `docker-compose.prod.yml`)**
+— nuevo `Back/api/Dockerfile` (multi-stage NestJS) y `Front/Dockerfile`
+(multi-stage Angular SPA → nginx, `Front/nginx.conf` con fallback de SPA +
+gzip), orquestados en `docker-compose.prod.yml` (raíz del repo) +
+`.env.production.example`. **Build verificado de punta a punta con Docker
+real** (ambas imágenes compilan limpio, `docker compose up -d --build`
+llega a crear los 3 contenedores) — el arranque en caliente (curl a los
+servicios corriendo) no se pudo confirmar en este entorno por
+limitaciones del sandbox con contenedores de larga duración en
+background; recomendado que el usuario lo confirme una vez en su propia
+máquina/CI con `docker compose --env-file .env.production -f
+docker-compose.prod.yml up -d --build`.
+
+Bugs reales encontrados y corregidos en el camino (ver `docs/known-bugs.md`):
+`Back/api/pnpm-workspace.yaml` tenía un `allowBuilds` a medio configurar
+(`bcrypt: false` + un placeholder sin completar) que rompía cualquier
+install limpio (no solo Docker); `Front/pnpm-workspace.yaml` necesitó
+`minimumReleaseAge: 0` (el exclude-list por versión no alcanza en un store
+completamente limpio); el build del frontend necesita el token de GitHub
+Packages como **build secret** (`--secret id=npm_auth_token,env=NODE_AUTH_TOKEN`),
+nunca en el `.npmrc` del repo (pnpm lo rechaza a propósito).
+
+**Redis removido** (`Back/docker-compose.yml`, `Back/.env`) — cero
+consumidores en el código, era puro riesgo/infra sin usar. Reintroducir
+el día que haya un caso de uso real.
+
+**Pendiente de decidir con el usuario antes de un deploy real**: dominio
+de producción (`CORS_DOMAIN`/`apiBaseUrl` en `environment.prod.ts` siguen
+con placeholders), estrategia de TLS (el compose no termina TLS, asume un
+reverse proxy/LB externo), y si Postgres se auto-hospeda o se usa un
+servicio administrado.
+
+**Producto/Cliente/Proveedor — campos de completitud DIAN** (Colombia,
+preparación para facturación electrónica futura, no la integración real
+todavía) — ver `docs/adr/018-campos-dian-facturacion-electronica.md`.
+Catálogo nuevo `tarifas_iva` (universal, no por rubro — Excluido/0%/5%/19%),
+nesteado en `module_forms` de los 4 módulos de rubro (mismo patrón que
+Categorías/Unidades, ADR-016). `producto_barrio`/`moda`/`ferreteria` +
+`iva_id`/`proveedor_id` (ambos `relation` real, FK de verdad — a diferencia
+de `categoria`/`unidad` que usan `optionsSource` sin FK);
+`servicio_belleza` + `iva_id` (sin proveedor). `clientes`/`proveedores` +
+`tipo_documento`/`tipo_persona`/`regimen_tributario` (selects estáticos,
+no catálogo — la enumeración DIAN completa queda fuera de alcance a
+propósito). Datos ya sembrados esta sesión actualizados a mano con
+valores realistas (no quedan en `NULL`). Fix de motor aprovechado:
+`buildAlterTableDDL()` (agregar campos a una tabla YA existente) no
+agregaba la FK cuando el campo nuevo tenía `relation` — corregido con el
+mismo patrón idempotente (`pg_constraint`/`pg_namespace`) que ya se usó
+para la tabla de detalle de `line-items` (ADR-017). `tsc`/`nest build`
+limpios, verificado contra la DB real (FKs existen, SP de `venta_barrio`
+no se rompió).
+
 **Ventas — `venta_barrio` implementado end-to-end** (primera variante,
 tienda de barrio), con dforms `1.3.3` (`line-items`+`relation`+`time`, ya
 instalado). Ver `docs/adr/017-tabla-detalle-line-items.md` para el diseño
@@ -533,8 +585,19 @@ y fue corregida esta sesión.
    sidebar admin dinámico, builder en modo público, `/admin/modules`, modal
    "Nuevo tenant", buscador + paginación de la grid, modo de visualización
    modal/inline + ancho custom.
-5. Decidir `docker-compose.prod.yml` (pendiente desde el inicio del proyecto).
-6. Decidir sobre Redis: quitarlo del compose o implementar su uso real.
+5. ~~Decidir `docker-compose.prod.yml`~~ — **resuelto**: Dockerfiles +
+   compose creados y build-verificados con Docker real (ver "Último
+   trabajo realizado"). Pendiente antes de un deploy real: dominio de
+   producción, estrategia de TLS, decidir Postgres auto-hospedado vs.
+   administrado — y confirmar el arranque en caliente en una máquina/CI
+   real (no se pudo verificar en este sandbox).
+6. ~~Decidir sobre Redis~~ — **resuelto**: removido, cero consumidores.
 7. Fase futura ya acordada con el usuario: vista para migrar los *datos*
    (tabla + filas) de un formulario probado en `public` hacia un tenant real
    elegido.
+8. DIAN: la lista de `tipo_documento` es deliberadamente incompleta frente
+   a la taxonomía oficial (ver ADR-018) — ampliarla si se necesita el
+   catálogo completo. Perfil del emisor (NIT/razón social/resolución de
+   facturación del propio tenant) y código UNSPSC del producto quedan
+   fuera de alcance hasta encarar la integración real de facturación
+   electrónica.

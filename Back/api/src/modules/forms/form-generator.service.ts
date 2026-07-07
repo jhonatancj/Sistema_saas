@@ -103,15 +103,35 @@ CREATE TABLE IF NOT EXISTS ${tableName} (
   // ── 3b. Genera DDL para agregar a una tabla existente las columnas
   //        que el formulario tenga y la tabla no — nunca borra ni altera
   //        columnas existentes. Siempre NULL: las filas ya guardadas no
-  //        tienen valor para el campo nuevo y no hay backfill.
+  //        tienen valor para el campo nuevo y no hay backfill. Si el campo
+  //        nuevo tiene `relation`, agrega también la FK real (idempotente
+  //        contra pg_constraint/pg_namespace — mismo criterio que
+  //        buildDetailAlterTableDDL, ver docs/adr/017 y docs/adr/018).
+  //        Antes de este fix, agregar `relation` a un campo en una tabla ya
+  //        existente dejaba la columna sin FK — gap real, cerrado acá.
   buildAlterTableDDL(schema: string, slug: string, fields: ExtractedField[]): string {
     const tableName = `${schema}.tbl_${slug}`;
-    const alters = fields.map((f) => {
+    const statements: string[] = [];
+    for (const f of fields) {
       const dbType = this.toDbType(f);
       const defaults = f.type === 'checkbox' ? ' DEFAULT FALSE' : '';
-      return `ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${f.key} ${dbType}${defaults};`;
-    });
-    return alters.join('\n');
+      statements.push(`ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${f.key} ${dbType}${defaults};`);
+      if (f.relation) {
+        const constraintName = `fk_tbl_${slug}_${f.key}`;
+        statements.push(`
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint con
+    JOIN pg_namespace ns ON ns.oid = con.connamespace
+    WHERE con.conname = '${constraintName}' AND ns.nspname = '${schema}'
+  ) THEN
+    ALTER TABLE ${tableName} ADD CONSTRAINT ${constraintName}
+      FOREIGN KEY (${f.key}) REFERENCES ${schema}.tbl_${f.relation.form}(${f.relation.keyValue});
+  END IF;
+END $$;`.trim());
+      }
+    }
+    return statements.join('\n');
   }
 
   // ── 3c. Detecta un nodo 'line-items' en el árbol del formulario (a lo

@@ -309,8 +309,9 @@ momento (no lo dejes para después) y decilo explícitamente en tu respuesta.
 - `public.subscription_plans`/`public.tenant_subscriptions` son dead code
   completo — no depender de esas tablas para nada nuevo sin antes confirmar
   con el usuario si se van a activar.
-- Redis está provisionado en `docker-compose.yml` pero no hay dependencia de
-  cliente en el backend — decisión pendiente (quitarlo o implementar su uso).
+- ~~Redis está provisionado...~~ — **resuelto**: se quitó (`Back/docker-compose.yml`,
+  `Back/.env`), no había ningún consumidor en el backend. Reintroducir el día
+  que haya un caso de uso real (cache de sesión, rate limiting, colas).
 
 ---
 

@@ -1,0 +1,81 @@
+# Compose de producción — Postgres + backend (NestJS) + frontend (Angular
+# vía nginx). Pendiente de decidir antes de desplegar de verdad (ver
+# CURRENT_STATE.md): dominio real, estrategia de TLS (este compose no
+# termina TLS — se asume un reverse proxy/LB externo delante, ej.
+# Caddy/Traefik/el LB del proveedor de hosting, o Cloudflare) y si Postgres
+# se auto-hospeda acá o se usa un servicio administrado (RDS, Supabase,
+# etc. — más simple para backups/failover que mantenerlo en este compose).
+#
+# Uso: cp .env.production.example .env.production (completar valores reales)
+#      export NODE_AUTH_TOKEN=ghp_tu_token_con_scope_read:packages (para el build del frontend, ver @jhonatancj/dforms)
+#      docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+
+name: saas-inventario-prod
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: saas_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Sin puerto expuesto al host — solo la red interna de Docker lo
+    # necesita (backend). Si hace falta acceso externo puntual, usar un
+    # túnel SSH en vez de abrir el puerto acá.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./Back/api
+      dockerfile: Dockerfile
+    container_name: saas_backend_prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      APP_PORT: 3000
+      CORS_DOMAIN: ${CORS_DOMAIN}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION}
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: ./Front
+      dockerfile: Dockerfile
+      # @jhonatancj/dforms es privado (GitHub Packages) — el Dockerfile lo
+      # monta como build secret, nunca como ARG/ENV (no queda persistido en
+      # ninguna capa). Requiere `export NODE_AUTH_TOKEN=...` antes de correr
+      # este compose (ver el comentario de "Uso" arriba).
+      secrets:
+        - npm_auth_token
+    container_name: saas_frontend_prod
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+secrets:
+  npm_auth_token:
+    environment: NODE_AUTH_TOKEN
+
+volumes:
+  postgres_data:
