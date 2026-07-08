@@ -31,6 +31,16 @@ export class FormsController {
     return this.formExecutor.getForms(req.user.schemaName);
   }
 
+  // Debe registrarse ANTES de Get(':slug') — si no, Nest matchea esa ruta
+  // primero y ':slug' captura literalmente "me" (mismo gotcha documentado en
+  // AdminFormsController para 'public/tables').
+  @Get('me/empleado')
+  @ApiOperation({ summary: 'Empleado (id+nombre) cuyo email coincide con el usuario logueado, para autocompletar input-lupa (null si no hay match)' })
+  @ApiResponse({ status: 200, description: '{ id, nombre } o null.' })
+  getMeEmpleado(@Request() req) {
+    return this.formExecutor.findEmpleadoByEmail(req.user.schemaName, req.user.email);
+  }
+
   @Get(':slug')
   @ApiOperation({ summary: 'Obtener un formulario por slug (incluye json_form)' })
   @ApiParam({ name: 'slug', example: 'orden_compra' })

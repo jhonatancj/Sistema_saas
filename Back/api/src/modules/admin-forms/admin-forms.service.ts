@@ -50,6 +50,13 @@ export class AdminFormsService {
     return this.formExecutor.getForm('public', slug);
   }
 
+  // Sandbox `public` del super admin — mismo criterio de `getPublicForm`
+  // (schema hardcodeado, no viene del request). Ver
+  // FormExecutorService.findEmpleadoByEmail.
+  async getMeEmpleado(email: string) {
+    return this.formExecutor.findEmpleadoByEmail('public', email);
+  }
+
   async createPublicForm(dto: {
     slug: string; name: string; jsonForm?: any; icon?: string;
     tableName?: string; spName?: string; recreateSp?: boolean; gridQuery?: string;

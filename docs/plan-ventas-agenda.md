@@ -319,26 +319,59 @@ stock por bodega en esta fase (descarta rework del SP de ventas).
       limpios. **Sin verificación visual en navegador** (Playwright no
       instalado en este entorno).
 
-### Fase 2 — Reemplazar selects-por-nombre por relaciones reales (pendiente)
-- `cita`: `cliente`/`empleado` de `select`+`optionsSource` (guardan nombre) a
-  `input-lupa` (id real + nombre denormalizado, ver limitación de arriba ya
-  resuelta por ADR-019). `servicio` puede quedar como está si no hay
-  duplicados reales.
-- `venta_barrio` (encabezado): `cliente` y `vendedor/empleado` vía
-  `input-lupa`; agregar `sucursal_nombre`/`sucursal_id` como etiqueta
-  (decisión de stock global). El producto dentro de `line-items` sigue
-  resolviéndose con la columna `select`+`optionsFillMap` de dforms —
-  `input-lupa` es un tipo de campo de formulario, no una columna de
-  `line-items`, no aplica ahí.
+### Fase 2 — Reemplazar selects-por-nombre por relaciones reales (hecha)
+- [x] `cita`: `cliente`/`empleado` de `select`+`optionsSource` (guardaban el
+      nombre) a `input-lupa` con la variante "sin denormalizar" (ver
+      ADR-019 sección nueva): solo se persiste `cliente_id`/`empleado_id`
+      (`BIGINT` + FK real hacia `clientes`/`empleados`), el nombre se
+      resuelve siempre por `JOIN` (`grid_query` nuevo) — nunca se duplica
+      como columna (`persistDisplay:false`). `servicio` quedó igual (select,
+      sin cambios, decisión del usuario). Corregido en el camino: las
+      columnas `cliente_id`/`empleado_id` habían quedado `NUMERIC(12,2)` sin
+      FK en el primer intento (faltaba `relation` en el campo oculto) —
+      corregido a mano (`ALTER COLUMN TYPE BIGINT` + `ADD CONSTRAINT`) antes
+      de reprocesar con `relation` ya declarado. Verificado con INSERT real
+      vía `sp_cita` (BIGINT + FK, sin errores) y el `grid_query` con `JOIN`
+      probado contra las 4 citas de ejemplo.
+- [x] `venta_barrio` (encabezado): `cliente_id` migrado de `select`+
+      `relation` a `input-lupa` (misma variante sin denormalizar, mismo
+      criterio); agregados `vendedor_id`/`sucursal_id` (`BIGINT` + FK reales
+      hacia `empleados`/`sucursales`) — `vendedor` se autocompleta con el
+      empleado cuyo email coincide con el usuario logueado (mecanismo nuevo
+      y genérico `autoFillCurrentEmployee`, ver ADR-019), `sucursal` es solo
+      etiqueta (decisión de stock global, sin efecto en el descuento). SP a
+      mano (`sp_venta_barrio`) actualizado — `INSERT`/`UPDATE` ahora
+      persisten `vendedor_id`/`sucursal_id`, `SELECT_BY_ID` agrega el mismo
+      `JOIN` (cliente/vendedor/sucursal) para reabrir el modal de edición ya
+      resuelto. Verificado end-to-end: insert (stock -2), update cantidad
+      2→1 (stock +1 neto), delete (restitución completa) — los 3 con
+      nombres resueltos correctamente vía `JOIN`.
+- [x] Mecanismo nuevo: `FormExecutorService.findEmpleadoByEmail()` +
+      endpoint `GET {forms,admin/forms}/me/empleado` +
+      `FormDetailComponent.openCreate()` (marcador
+      `autoFillCurrentEmployee: true` en el nodo `input-lupa`) — genérico,
+      reusable para cualquier form futuro que necesite "empleado = usuario
+      logueado" (ej. "recibido por" en Compras).
 
-### Fase 3 — Enriquecer los formularios "muy simples" (pendiente)
-- `producto_*`: `proveedor` vía `input-lupa` (hoy `proveedor_id` ya es
-  `relation` real pero sin buscador cómodo — evaluar si migrar o dejar
-  como está), agregar `marca`/`stock_minimo`/`ubicacion`.
-- Nuevo módulo **Compras / Entrada de mercancía** (espejo de Ventas que
-  *aumenta* stock en vez de restarlo): proveedor vía `input-lupa`, líneas de
-  producto (`line-items`), SP a mano (`recreateSp:false`) que suma stock.
-  Cierra el ciclo compra→venta que hoy no existe.
+### Fase 3 — Ingreso de mercancía / Compras (hecho) + enriquecer producto_* (pendiente)
+- [x] Nuevo form `compra_barrio` + módulo `COMPRAS_BARRIO` (rubro
+      `tienda_barrio`, roles ADMIN+WAREHOUSE full, SALES solo ver) — espejo
+      de `venta_barrio` pero *suma* stock: `proveedor_nombre` (input-lupa,
+      variante sin denormalizar → `proveedor_id` BIGINT+FK),
+      `numero_factura` (texto, requerido — trazabilidad del documento del
+      proveedor), `fecha`, `line-items` (`producto_id` select+relation+
+      `optionsFillMap` autocompleta `costo_unitario` desde `precio_compra`,
+      `cantidad`, `costo_unitario`, `subtotal` calculado). SP a mano
+      (`sp_compra_barrio`) — sin guard de inmutabilidad (decisión: una
+      compra siempre es editable, a diferencia de una venta). `grid_query`
+      con `JOIN` a proveedores. 2 compras de ejemplo sembradas (Distribuidora
+      El Sol: Arroz+Coca-Cola: $88.000; Suministros del Valle: Leche:
+      $28.000). Verificado end-to-end: insert (stock +10), update cantidad
+      10→5 (stock neto -5), delete (reversión completa a stock original).
+- [ ] `producto_*`: `proveedor` vía `input-lupa` (hoy `proveedor_id` ya es
+      `relation` real pero con `select` nativo, no lupa — evaluar si migrar
+      o dejar como está, no es un bug), agregar `marca`/`stock_minimo`/
+      `ubicacion`. No hecho todavía.
 
 ### Fase 4 — Multi-rubro + sync a tenant (ya documentado arriba, sin cambios)
 - `venta_moda`/`venta_ferreteria`/`venta_belleza`, sincronizar el rubro real

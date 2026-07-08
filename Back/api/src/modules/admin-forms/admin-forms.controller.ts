@@ -29,6 +29,15 @@ export class AdminFormsController {
     return this.service.getPublicForms();
   }
 
+  // Debe registrarse ANTES de Get(':slug') — mismo gotcha que 'public/tables'
+  // más abajo: si no, ':slug' captura literalmente "me".
+  @ApiOperation({ summary: 'Empleado (id+nombre) cuyo email coincide con el super admin logueado, para autocompletar input-lupa (null si no hay match)' })
+  @Get('me/empleado')
+  getMeEmpleado(@Request() req) {
+    this.guardSuperAdmin(req);
+    return this.service.getMeEmpleado(req.user.email);
+  }
+
   @ApiOperation({ summary: 'Obtener formulario público por slug' })
   @ApiParam({ name: 'slug', example: 'producto' })
   @Get(':slug')

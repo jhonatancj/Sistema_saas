@@ -206,6 +206,48 @@ export class FormDetailComponent {
     this.editingRow.set(null);
     this.submission.set({ data: {} });
     this.modalMode.set('create');
+    this.autoFillCurrentEmployee();
+  }
+
+  // Busca un campo input-lupa marcado con `autoFillCurrentEmployee: true`
+  // (convención propia de este proyecto, opaca para dforms — ver
+  // docs/adr/019, sección de autocompletado) — ej. "vendedor" en Ventas.
+  private findAutoFillEmployeeField(schema: BuilderSchema | null): any | null {
+    if (!schema) return null;
+    const walk = (nodes: any[]): any | null => {
+      for (const n of nodes) {
+        if (n.type === 'input-lupa' && n.autoFillCurrentEmployee === true) return n;
+        if (n.children?.length) {
+          const found = walk(n.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return walk(schema.root ?? []);
+  }
+
+  // Si el form tiene ese campo, resuelve el empleado cuyo email coincide con
+  // el usuario logueado y precarga el campo + sus assignments — igual que
+  // haría el usuario seleccionándolo a mano en el modal de la lupa. Sin
+  // match (usuario sin fila en empleados), no hace nada — el campo queda
+  // buscable a mano, no bloquea la creación del registro.
+  private autoFillCurrentEmployee(): void {
+    const field = this.findAutoFillEmployeeField(this.modalSchema());
+    if (!field) return;
+
+    this.api.get<ApiResp<{ id: number; nombre: string } | null>>(`${this.formsBase()}/me/empleado`).subscribe({
+      next: (res) => {
+        const empleado = res.data;
+        if (!empleado) return;
+        const patch: Record<string, any> = { [field.key]: empleado.nombre };
+        for (const a of field.assignments ?? []) {
+          patch[a.formProperty] = (empleado as any)[a.responseProperty];
+        }
+        this.submission.update((s) => ({ data: { ...s.data, ...patch } }));
+      },
+      error: () => {},
+    });
   }
 
   // Un form con un campo 'line-items' (ver docs/adr/017-tabla-detalle-line-items.md)

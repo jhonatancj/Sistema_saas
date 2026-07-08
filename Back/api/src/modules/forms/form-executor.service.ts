@@ -61,6 +61,26 @@ export class FormExecutorService {
     return result.rows[0];
   }
 
+  // Resuelve el empleado (id + nombre) cuyo email coincide con el del
+  // usuario logueado — usado para autocompletar campos input-lupa marcados
+  // con `autoFillCurrentEmployee` (ver docs/adr/019, sección de
+  // autocompletado). `null` es un resultado válido (el usuario no tiene fila
+  // en empleados, ej. el super admin en su propio sandbox) — no es un error.
+  // Defensivo ante schemas sin `tbl_empleados` (tenant que no sincronizó ese
+  // form todavía): cualquier error de la query cae a `null`, nunca rompe el
+  // form que lo está pidiendo.
+  async findEmpleadoByEmail(schema: string, email: string): Promise<{ id: number; nombre: string } | null> {
+    try {
+      const result = await this.pool.query(
+        `SELECT id, nombre FROM ${schema}.tbl_empleados WHERE email = $1 AND deleted_at IS NULL LIMIT 1`,
+        [email],
+      );
+      return result.rows[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async getGridConfig(schema: string, slug: string) {
     const result = await this.pool.query(
       `SELECT grid_config FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,

@@ -42,6 +42,11 @@ export class FormGeneratorService {
       if (node.children?.length) {
         fields.push(...this.extractFields(node.children));
       }
+      // input-lupa con persistDisplay:false es solo UI (busca y autocompleta
+      // otros campos vía assignments) — no genera columna propia, evita
+      // duplicar el nombre cuando ya se persiste el id real en un campo
+      // hermano con `relation` (ver docs/adr/019, sección "sin denormalizar").
+      if (node.type === 'input-lupa' && node.persistDisplay === false) continue;
       if (['text', 'number', 'select', 'textarea', 'checkbox', 'image', 'currency', 'date', 'input-lupa'].includes(node.type)) {
         fields.push({
           key: node.key,

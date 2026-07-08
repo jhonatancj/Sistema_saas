@@ -53,7 +53,9 @@
   }
 
   &__footer {
-    @include m.flex-between;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     padding: 1rem 1.5rem;
     border-top: 1px solid var(--topbar-border);
     gap: 0.75rem;
