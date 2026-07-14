@@ -18,6 +18,16 @@ export interface MenuModule {
   can_edit: boolean;
   can_delete: boolean;
   forms: MenuFormRef[];
+  // Solo viene en el catálogo público (ver getPublicModulesForMenu) — un
+  // módulo universal (Clientes/Proveedores/Empleados/Sucursales) lo trae
+  // en null. Sigue siendo útil (ej. filtro al sincronizar un tenant), pero
+  // ya no se usa para agrupar el sidebar — ver `parent_id`/ADR-024.
+  rubro_id?: number | null;
+  // Jerarquía real de módulos (hasta 4 niveles con el form incluido, ver
+  // docs/adr/024-jerarquia-modulos.md) — `null`/ausente = raíz. Viene tanto
+  // del catálogo público como de `/modules/by-role/:role` (un tenant
+  // también puede armar su propia jerarquía desde Configuración > Módulos).
+  parent_id?: number | null;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -382,7 +382,7 @@ $$ LANGUAGE plpgsql;`.trim();
     }
 
     const existing = await this.pool.query(
-      `SELECT id, has_table, has_sp, table_name, sp_name FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
+      `SELECT id, has_table, has_sp, table_name, sp_name, recreate_sp FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
       [dto.slug],
     );
 
@@ -433,7 +433,11 @@ $$ LANGUAGE plpgsql;`.trim();
       }
     }
 
-    const recreateSp = dto.recreateSp ?? true;
+    // El valor guardado del form existente gana sobre el default cuando el DTO
+    // no lo especifica explícitamente — sin esto, cualquier update que no
+    // repita `recreateSp:false` pisa un SP a mano con el genérico (ver
+    // docs/known-bugs.md).
+    const recreateSp = dto.recreateSp ?? (exists ? prev.recreate_sp : true);
     const effectiveSpName = dto.spName || `sp_${dto.slug}`;
     let hasSp = exists ? prev.has_sp : false;
     if (recreateSp) {
@@ -469,24 +473,26 @@ $$ LANGUAGE plpgsql;`.trim();
           icon         = $8,
           display_mode = $9,
           modal_width  = $10,
+          recreate_sp  = $11,
           updated_at   = NOW()
-         WHERE slug = $11
+         WHERE slug = $12
          RETURNING *`,
         [
           dto.name, dto.jsonForm, hasTable, hasSp, tableNameToStore, spNameToStore,
-          dto.gridQuery ?? null, dto.icon ?? null, displayModeToStore, modalWidthToStore, dto.slug,
+          dto.gridQuery ?? null, dto.icon ?? null, displayModeToStore, modalWidthToStore,
+          recreateSp, dto.slug,
         ],
       );
     } else {
       result = await this.pool.query(
         `INSERT INTO ${schema}.forms
-          (slug, name, parent_id, action, json_form, has_table, has_sp, table_name, sp_name, grid_query, icon, display_mode, modal_width)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          (slug, name, parent_id, action, json_form, has_table, has_sp, table_name, sp_name, grid_query, icon, display_mode, modal_width, recreate_sp)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING *`,
         [
           dto.slug, dto.name, dto.parentId ?? null, dto.action ?? null, dto.jsonForm,
           hasTable, hasSp, tableNameToStore, spNameToStore, dto.gridQuery ?? null, dto.icon ?? null,
-          displayModeToStore, modalWidthToStore,
+          displayModeToStore, modalWidthToStore, recreateSp,
         ],
       );
     }

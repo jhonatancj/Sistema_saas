@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ApiService } from '../../../core/services/api.service';
@@ -12,7 +12,7 @@ interface ApiResp<T> { success: boolean; data: T; }
 interface Module {
   id: number; name: string; code: string; icon: string; description?: string;
   sort_order: number; is_active: boolean; is_custom: boolean;
-  forms: string[];
+  forms: string[]; parent_id?: number | null;
 }
 
 interface FormItem { id: number; slug: string; name: string; }
@@ -64,7 +64,15 @@ export class SettingsModulesComponent implements OnInit {
 
   // Edición de un módulo ya existente — mismo patrón que AdminModulesComponent
   editName = ''; editIcon = ''; editDescription = ''; editSortOrder = 0; editIsActive = true;
+  editParentId: number | null = null;
   readonly savingEdit = signal(false);
+
+  // Opciones del selector "Módulo padre" — cualquier módulo salvo el que se
+  // está editando (la validación real de ciclo/profundidad la hace el
+  // backend).
+  readonly parentOptions = computed(() =>
+    this.modules().filter((m) => m.id !== this.selected()?.id),
+  );
 
   ngOnInit(): void {
     if (this.tenant.isAdminContext()) {
@@ -84,6 +92,7 @@ export class SettingsModulesComponent implements OnInit {
     this.editDescription = m.description ?? '';
     this.editSortOrder = m.sort_order;
     this.editIsActive = m.is_active;
+    this.editParentId = m.parent_id ?? null;
     this.activeTab.set('forms');
     this.loadRoles(m.id);
   }
@@ -98,6 +107,7 @@ export class SettingsModulesComponent implements OnInit {
       description: this.editDescription || undefined,
       sortOrder: this.editSortOrder,
       isActive: this.editIsActive,
+      parentId: this.editParentId,
     }).subscribe({
       next: () => {
         this.savingEdit.set(false);

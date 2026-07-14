@@ -64,18 +64,7 @@
         @if (isOpen(item.label)) {
           <div class="sidebar__children">
             @for (child of item.children; track $index) {
-              <a class="sidebar__child"
-                 [routerLink]="child.route"
-                 [queryParams]="child.queryParams"
-                 routerLinkActive="sidebar__child--active">
-                <span class="sidebar__child-content">
-                  <app-nav-icon [name]="child.icon || 'fa-solid fa-circle-dot'" />
-                  {{ child.label }}
-                </span>
-                @if (child.badge) {
-                  <span class="sidebar__badge">{{ child.badge }}</span>
-                }
-              </a>
+              <app-nav-tree-node [node]="child" [depth]="1" />
             }
           </div>
         }

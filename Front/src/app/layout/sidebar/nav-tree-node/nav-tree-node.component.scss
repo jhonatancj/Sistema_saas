@@ -1,0 +1,94 @@
+// Reusa las mismas custom properties del sidebar (--sidebar-text-dim,
+// --sidebar-hover, etc., definidas en :root/.sidebar--admin) — atraviesan
+// el view-encapsulation sin problema, no hace falta duplicar nada global.
+:host {
+  display: contents;
+}
+
+.ntn {
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.625rem;
+    border-radius: var(--radius-sm);
+    color: var(--sidebar-text-dim);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--ease), color var(--ease);
+
+    &:hover {
+      background: var(--sidebar-hover);
+      color: var(--sidebar-text);
+    }
+
+    &--active {
+      background: var(--sidebar-hover);
+      color: #fff;
+    }
+  }
+
+  &__children {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 2px 0;
+  }
+
+  &__leaf {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.4rem 0.625rem;
+    border-radius: var(--radius-sm);
+    color: var(--sidebar-text-dim);
+    font-size: 13px;
+    font-weight: 400;
+    white-space: nowrap;
+    transition: background var(--ease), color var(--ease);
+
+    &:hover {
+      background: var(--sidebar-hover);
+      color: var(--sidebar-text);
+    }
+
+    &--active {
+      color: #fff;
+      font-weight: 500;
+    }
+  }
+
+  &__label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    color: var(--sidebar-text-dim);
+    transition: transform var(--ease);
+
+    &--open { transform: rotate(180deg); }
+  }
+
+  &__badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    background: var(--badge-bg);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 9px;
+    flex-shrink: 0;
+  }
+}

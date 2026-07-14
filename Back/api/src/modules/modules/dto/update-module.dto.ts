@@ -24,4 +24,7 @@ export class UpdateModuleDto {
 
   @ApiPropertyOptional({ example: 1, description: 'Id de public.tbl_rubro — a qué rubro aplica este módulo. Vacío = universal/core (se ofrece para cualquier tenant).' })
   rubroId?: number;
+
+  @ApiPropertyOptional({ example: 5, description: 'Id de otro módulo del mismo schema para anidar este como submódulo — hasta 3 niveles de módulo antes de un form. `null` explícito lo vuelve a la raíz; omitido = no cambia.' })
+  parentId?: number | null;
 }

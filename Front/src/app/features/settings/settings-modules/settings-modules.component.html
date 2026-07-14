@@ -151,6 +151,12 @@
                 <label class="field__lbl">Orden en el sidebar</label>
                 <input class="field__inp" type="number" [(ngModel)]="editSortOrder" />
               </div>
+              <div class="field">
+                <label class="field__lbl">Módulo padre</label>
+                <ng-select [items]="parentOptions()" bindValue="id" bindLabel="name" [ngModel]="editParentId"
+                  (ngModelChange)="editParentId = $event" placeholder="Vacío = raíz del sidebar" [clearable]="true" />
+                <span class="field__hint">Anida este módulo dentro de otro en el sidebar — hasta 3 niveles de módulo antes de un formulario.</span>
+              </div>
               <label class="mods__toggle-row">
                 <label class="mods__toggle">
                   <input type="checkbox" [checked]="editIsActive" (change)="editIsActive = !editIsActive" />

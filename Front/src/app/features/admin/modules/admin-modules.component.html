@@ -27,6 +27,9 @@
           <ng-select [items]="rubros()" bindValue="id" bindLabel="nombre" [ngModel]="newRubroId"
             (ngModelChange)="newRubroId = $event" placeholder="Rubro (vacío = universal/core, ej. Clientes, Proveedores)"
             [clearable]="true" />
+          <ng-select [items]="parentOptions()" bindValue="id" bindLabel="name" [ngModel]="newParentId"
+            (ngModelChange)="newParentId = $event" placeholder="Módulo padre (vacío = raíz)"
+            [clearable]="true" />
           <div class="mods__icon-row">
             <input class="field__inp" placeholder="Ícono FontAwesome (ej: fa-solid fa-box)" [(ngModel)]="newIcon" />
             @if (newIcon) { <i [class]="newIcon" class="mods__icon-preview"></i> }
@@ -111,6 +114,12 @@
                     (ngModelChange)="editRubroId = $event" placeholder="Vacío = universal/core" [clearable]="true" />
                   <span class="field__hint">Vacío = se ofrece para cualquier tenant al sincronizar (ej. Clientes/Proveedores/Categorías).</span>
                 </div>
+              </div>
+              <div class="field">
+                <label class="field__lbl">Módulo padre</label>
+                <ng-select [items]="parentOptions()" bindValue="id" bindLabel="name" [ngModel]="editParentId"
+                  (ngModelChange)="editParentId = $event" placeholder="Vacío = raíz del sidebar" [clearable]="true" />
+                <span class="field__hint">Anida este módulo dentro de otro en el sidebar — hasta 3 niveles de módulo antes de un formulario.</span>
               </div>
               <div class="field">
                 <label class="field__lbl">Descripción corta</label>

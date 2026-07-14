@@ -14,6 +14,74 @@ export class ModulesService {
     private readonly formGenerator: FormGeneratorService,
   ) { }
 
+  // ── Jerarquía de módulos (hasta 4 niveles: módulo > submódulo >
+  // submódulo > form — 3 niveles de módulo, el form es el 4º y último
+  // peldaño) — ver docs/adr/024-jerarquia-modulos.md. Un solo helper
+  // reusado por los 4 puntos de entrada (create/update × public/tenant).
+  // `moduleId` es `null` al crear (todavía no existe, no puede haber ciclo
+  // ni subárbol propio) y el id real al editar.
+  private async validateModuleParent(
+    schema: string, moduleId: number | null, parentId: number | null | undefined,
+  ): Promise<void> {
+    if (parentId == null) return; // raíz — siempre válido
+    if (moduleId != null && parentId === moduleId) {
+      throw new BadRequestException('Un módulo no puede ser su propio padre');
+    }
+
+    // Cadena de ancestros del padre propuesto (él mismo incluido) — sirve
+    // tanto para detectar un ciclo (¿el módulo que edito aparece ahí?)
+    // como para saber su profundidad (MAX(depth), raíz = 1).
+    const ancestors = await this.pool.query(
+      `WITH RECURSIVE chain AS (
+         SELECT id, parent_id, 1 AS depth FROM ${schema}.modules WHERE id = $1
+         UNION ALL
+         SELECT m.id, m.parent_id, chain.depth + 1
+         FROM ${schema}.modules m JOIN chain ON m.id = chain.parent_id
+       )
+       SELECT array_agg(id) AS ids, COALESCE(MAX(depth), 0) AS depth FROM chain`,
+      [parentId],
+    );
+    const { ids, depth: parentDepth } = ancestors.rows[0];
+    if ((ancestors.rowCount ?? 0) === 0 || parentDepth === 0) {
+      throw new NotFoundException('El módulo padre elegido no existe');
+    }
+    // `.map(Number)`: `database.module.ts` normaliza BIGINT (OID 20) a
+    // number, pero `array_agg(bigint)` es un tipo distinto (bigint[], OID
+    // 1016) sin parser propio — sin esto, `ids` llega como strings y
+    // `.includes(moduleId)` (number) nunca matchea, aunque sí haya ciclo.
+    // Mismo patrón ya documentado en docs/known-bugs.md, esta vez vía
+    // array_agg en vez de una columna simple.
+    if (moduleId != null && (ids ?? []).map(Number).includes(moduleId)) {
+      throw new BadRequestException('Ese módulo padre crearía un ciclo (es descendiente del módulo que estás editando)');
+    }
+
+    // Profundidad del propio subárbol del módulo que edito (0 si no tiene
+    // submódulos todavía) — moverlo no solo lo afecta a él, también a
+    // cualquier hijo/nieto que ya tenga.
+    let subtreeDepth = 0;
+    if (moduleId != null) {
+      const subtree = await this.pool.query(
+        `WITH RECURSIVE subtree AS (
+           SELECT id, 0 AS depth FROM ${schema}.modules WHERE id = $1
+           UNION ALL
+           SELECT m.id, subtree.depth + 1
+           FROM ${schema}.modules m JOIN subtree ON m.parent_id = subtree.id
+         )
+         SELECT COALESCE(MAX(depth), 0) AS depth FROM subtree`,
+        [moduleId],
+      );
+      subtreeDepth = subtree.rows[0].depth;
+    }
+
+    const MAX_MODULE_DEPTH = 3;
+    const newDepth = parentDepth + 1;
+    if (newDepth + subtreeDepth > MAX_MODULE_DEPTH) {
+      throw new BadRequestException(
+        `Anidar acá supera el máximo de ${MAX_MODULE_DEPTH} niveles de módulo (el formulario es el 4º y último)`,
+      );
+    }
+  }
+
   // ── Módulos públicos (plantillas) ────────────────────────────────
   // `name` es el nombre que ve el super admin en su propio catálogo/sidebar
   // (sirve para distinguir variantes, ej. "Inventario Restaurantes" vs
@@ -22,7 +90,7 @@ export class ModulesService {
   // cual). Ver docs/adr/012-module-tenant-name.md.
   async getPublicModules() {
     const result = await this.pool.query(
-      `SELECT m.id, m.name, m.tenant_name, m.code, m.tenant_code, m.icon, m.description, m.sort_order, m.is_active, m.rubro_id, m.created_at,
+      `SELECT m.id, m.name, m.tenant_name, m.code, m.tenant_code, m.icon, m.description, m.sort_order, m.is_active, m.rubro_id, m.parent_id, m.created_at,
               array_agg(mf.form_slug ORDER BY mf.sort_order) FILTER (WHERE mf.form_slug IS NOT NULL) as forms
        FROM public.modules m
        LEFT JOIN public.module_forms mf ON mf.module_id = m.id
@@ -34,25 +102,35 @@ export class ModulesService {
 
   async createPublicModule(dto: {
     name: string; code: string; icon?: string; description?: string; sortOrder?: number;
-    tenantName?: string; tenantCode?: string; rubroId?: number;
+    tenantName?: string; tenantCode?: string; rubroId?: number; parentId?: number | null;
   }) {
     const existing = await this.pool.query(
       `SELECT id FROM public.modules WHERE code = $1`, [dto.code]
     );
     if ((existing.rowCount ?? 0) > 0) throw new ConflictException(`El código '${dto.code}' ya existe`);
 
+    await this.validateModuleParent('public', null, dto.parentId);
+
     const result = await this.pool.query(
-      `INSERT INTO public.modules (name, code, icon, description, sort_order, tenant_name, tenant_code, rubro_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? 0, dto.tenantName ?? null, dto.tenantCode ?? null, dto.rubroId ?? null],
+      `INSERT INTO public.modules (name, code, icon, description, sort_order, tenant_name, tenant_code, rubro_id, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? 0, dto.tenantName ?? null, dto.tenantCode ?? null, dto.rubroId ?? null, dto.parentId ?? null],
     );
     return result.rows[0];
   }
 
   async updatePublicModule(id: number, dto: {
     name?: string; icon?: string; description?: string; sortOrder?: number; isActive?: boolean;
-    tenantName?: string; tenantCode?: string; rubroId?: number;
+    tenantName?: string; tenantCode?: string; rubroId?: number; parentId?: number | null;
   }) {
+    const current = await this.pool.query(`SELECT parent_id FROM public.modules WHERE id = $1`, [id]);
+    if ((current.rowCount ?? 0) === 0) throw new NotFoundException('Módulo no encontrado');
+    // `undefined` (no vino en el dto) conserva el valor actual; `null`
+    // explícito lo vuelve a la raíz — nunca un COALESCE acá, si no nunca se
+    // podría "desanidar" un módulo de vuelta a la raíz.
+    const resolvedParentId = dto.parentId !== undefined ? dto.parentId : current.rows[0].parent_id;
+    await this.validateModuleParent('public', id, resolvedParentId);
+
     const result = await this.pool.query(
       `UPDATE public.modules SET
         name        = COALESCE($1, name),
@@ -63,9 +141,10 @@ export class ModulesService {
         tenant_name = COALESCE($6, tenant_name),
         tenant_code = COALESCE($7, tenant_code),
         rubro_id    = COALESCE($8, rubro_id),
+        parent_id   = $9,
         updated_at  = NOW()
-       WHERE id = $9 RETURNING *`,
-      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, dto.tenantName ?? null, dto.tenantCode ?? null, dto.rubroId ?? null, id],
+       WHERE id = $10 RETURNING *`,
+      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, dto.tenantName ?? null, dto.tenantCode ?? null, dto.rubroId ?? null, resolvedParentId, id],
     );
     if ((result.rowCount ?? 0) === 0) throw new NotFoundException('Módulo no encontrado');
     return result.rows[0];
@@ -143,7 +222,7 @@ export class ModulesService {
   // ── Módulos del tenant ────────────────────────────────────────────
   async getTenantModules(schema: string) {
     const result = await this.pool.query(
-      `SELECT m.id, m.name, m.code, m.icon, m.description, m.sort_order, m.is_active, m.is_custom,
+      `SELECT m.id, m.name, m.code, m.icon, m.description, m.sort_order, m.is_active, m.is_custom, m.parent_id,
               array_agg(mf.form_slug ORDER BY mf.sort_order) FILTER (WHERE mf.form_slug IS NOT NULL) as forms
        FROM ${schema}.modules m
        LEFT JOIN ${schema}.module_forms mf ON mf.module_id = m.id
@@ -155,7 +234,7 @@ export class ModulesService {
 
   async getTenantModulesByRole(schema: string, roleCode: string) {
     const result = await this.pool.query(
-      `SELECT m.id, m.name, m.code, m.icon, m.sort_order,
+      `SELECT m.id, m.name, m.code, m.icon, m.sort_order, m.parent_id,
               mr.can_view, mr.can_create, mr.can_edit, mr.can_delete,
               COALESCE(
                 jsonb_agg(
@@ -179,9 +258,20 @@ export class ModulesService {
   // Menú del catálogo público para el sidebar del super admin — sin filtro de
   // rol (el super admin no tiene role_code de tenant y ya bypasea permisos en
   // el resto de la app), CRUD completo implícito.
+  // `rubro_id`/`rubro_code`/`rubro_nombre` — agregado para que el sidebar del
+  // super admin pueda agrupar los módulos por rubro (ver
+  // docs/adr/023-agrupacion-sidebar-admin-por-rubro.md). `rubro_id` ya
+  // viaja en `public.modules`, solo faltaba el JOIN a `tbl_rubro` para el
+  // nombre/code legibles — un módulo universal (Clientes/Proveedores/etc.)
+  // tiene `rubro_id NULL`, los 3 campos de rubro salen `NULL` también.
+  // `rubro_code`/`rubro_nombre` (agregados en una sesión anterior para un
+  // agrupamiento por rubro puramente calculado en el frontend) ya no se
+  // leen en ningún lado — reemplazados por la jerarquía real de
+  // `parent_id` (ver docs/adr/024-jerarquia-modulos.md). `rubro_id` se
+  // deja, sigue siendo útil (ej. filtro de módulos al sincronizar un tenant).
   async getPublicModulesForMenu() {
     const result = await this.pool.query(
-      `SELECT m.id, m.name, m.code, m.icon, m.sort_order,
+      `SELECT m.id, m.name, m.code, m.icon, m.sort_order, m.rubro_id, m.parent_id,
               TRUE AS can_view, TRUE AS can_create, TRUE AS can_edit, TRUE AS can_delete,
               COALESCE(
                 jsonb_agg(
@@ -202,7 +292,13 @@ export class ModulesService {
 
   async updateTenantModule(schema: string, id: number, dto: {
     name?: string; icon?: string; description?: string; sortOrder?: number; isActive?: boolean;
+    parentId?: number | null;
   }) {
+    const current = await this.pool.query(`SELECT parent_id FROM ${schema}.modules WHERE id = $1`, [id]);
+    if ((current.rowCount ?? 0) === 0) throw new NotFoundException('Módulo no encontrado');
+    const resolvedParentId = dto.parentId !== undefined ? dto.parentId : current.rows[0].parent_id;
+    await this.validateModuleParent(schema, id, resolvedParentId);
+
     const result = await this.pool.query(
       `UPDATE ${schema}.modules SET
         name        = COALESCE($1, name),
@@ -210,9 +306,10 @@ export class ModulesService {
         description = COALESCE($3, description),
         sort_order  = COALESCE($4, sort_order),
         is_active   = COALESCE($5, is_active),
+        parent_id   = $6,
         updated_at  = NOW()
-       WHERE id = $6 RETURNING *`,
-      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, id],
+       WHERE id = $7 RETURNING *`,
+      [dto.name ?? null, dto.icon ?? null, dto.description ?? null, dto.sortOrder ?? null, dto.isActive ?? null, resolvedParentId, id],
     );
     if ((result.rowCount ?? 0) === 0) throw new NotFoundException('Módulo no encontrado');
     return result.rows[0];
@@ -250,6 +347,20 @@ export class ModulesService {
          description = EXCLUDED.description, sort_order = EXCLUDED.sort_order`,
       filterParams,
     );
+
+    // Traduce la jerarquía (`parent_id`) de public a los ids locales del
+    // tenant — `public.modules.parent_id` apunta a un id de `public`, el
+    // tenant tiene los suyos propios (linkeados via `public_id`). Si el
+    // padre público no se sincronizó a este tenant (todavía, o nunca), `tp`
+    // no matchea y el módulo queda sin padre (raíz) — degradación segura,
+    // sin error. Ver docs/adr/024-jerarquia-modulos.md.
+    await this.pool.query(
+      `UPDATE ${schema}.modules tm SET parent_id = tp.id
+       FROM public.modules pm
+       JOIN ${schema}.modules tp ON tp.public_id = pm.parent_id
+       WHERE tm.public_id = pm.id AND pm.parent_id IS NOT NULL`,
+    );
+
     // ON CONFLICT (module_id, form_slug) — bug real encontrado al verificar
     // este fix: sin un target explícito, "ON CONFLICT DO NOTHING" no evita
     // nada si no hay una constraint única que matchee (module_forms solo
@@ -310,8 +421,14 @@ export class ModulesService {
   // has_table+has_sp) — no reprocesa forms que el tenant ya generó, solo
   // pone al día los que quedaron con la definición copiada pero sin tabla
   // real (el caso típico: un módulo sincronizado después de crear el tenant).
+  // Procesa en orden de dependencias (ver sortSlugsByDependencies) — sin
+  // esto, un form con `relation` hacia otro form todavía sin tabla (ej.
+  // `empleados` → `sucursales`, `venta_barrio` → `clientes`/`empleados`/
+  // `sucursales`/`producto_barrio`) puede fallar si Postgres devuelve el
+  // slug dependiente antes que su prerequisito (ver docs/known-bugs.md).
   private async ensureFormsGenerated(schema: string, slugs: string[]): Promise<void> {
-    for (const slug of slugs) {
+    const ordered = await this.sortSlugsByDependencies(schema, slugs);
+    for (const slug of ordered) {
       const formResult = await this.pool.query(
         `SELECT json_form, has_table, has_sp, icon, display_mode, modal_width, name, table_name, sp_name
          FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
@@ -327,6 +444,59 @@ export class ModulesService {
         icon: form.icon, displayMode: form.display_mode, modalWidth: form.modal_width,
       });
     }
+  }
+
+  // ── Orden topológico (Kahn/DFS) de `slugs` según las dependencias
+  // `relation` declaradas en cada `json_form` (campos ocultos de un
+  // `input-lupa`, `select`+`relation`, o columnas de un `line-items`) — un
+  // form solo se procesa después de los forms que referencia vía FK. Un
+  // ciclo (no debería poder pasar con los patrones actuales del motor) se
+  // corta sin bloquear el resto: se marca visitado y sigue, en vez de tirar
+  // error y abortar todo el sync.
+  private async sortSlugsByDependencies(schema: string, slugs: string[]): Promise<string[]> {
+    if (slugs.length <= 1) return slugs;
+
+    const slugSet = new Set(slugs);
+    const dependsOn = new Map<string, Set<string>>();
+
+    for (const slug of slugs) {
+      const result = await this.pool.query(
+        `SELECT json_form FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
+        [slug],
+      );
+      const jsonForm = result.rows[0]?.json_form;
+      const deps = new Set<string>();
+      if (jsonForm?.root) {
+        for (const f of this.formGenerator.extractFields(jsonForm.root)) {
+          if (f.relation?.form && f.relation.form !== slug && slugSet.has(f.relation.form)) {
+            deps.add(f.relation.form);
+          }
+        }
+        const lineItemsNode = this.formGenerator.findLineItemsNode(jsonForm.root);
+        for (const col of lineItemsNode?.lineItemColumns ?? []) {
+          if (col.relation?.form && col.relation.form !== slug && slugSet.has(col.relation.form)) {
+            deps.add(col.relation.form);
+          }
+        }
+      }
+      dependsOn.set(slug, deps);
+    }
+
+    const ordered: string[] = [];
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+
+    const visit = (slug: string) => {
+      if (visited.has(slug) || visiting.has(slug)) return;
+      visiting.add(slug);
+      for (const dep of dependsOn.get(slug) ?? []) visit(dep);
+      visiting.delete(slug);
+      visited.add(slug);
+      ordered.push(slug);
+    };
+
+    for (const slug of slugs) visit(slug);
+    return ordered;
   }
 
   // ── Sync de DATOS (no solo definición) para Categorías/Unidades de medida ──
@@ -390,11 +560,11 @@ export class ModulesService {
     if (formSlugs.length === 0) return { copied: 0 };
 
     const result = await this.pool.query(
-      `INSERT INTO ${schema}.forms (slug, name, json_form, grid_config, icon)
+      `INSERT INTO ${schema}.forms (slug, name, json_form, grid_config, icon, display_mode, modal_width)
        SELECT pf.slug, pf.name,
               COALESCE(pf.json_form, '{}'::jsonb),
               COALESCE(pf.grid_config, '[]'::jsonb),
-              pf.icon
+              pf.icon, pf.display_mode, pf.modal_width
        FROM public.forms pf
        WHERE pf.slug = ANY($1::text[])
        ON CONFLICT (slug) DO NOTHING
@@ -412,10 +582,12 @@ export class ModulesService {
     if ((existing.rowCount ?? 0) > 0)
       throw new ConflictException(`El código '${dto.code}' ya existe`);
 
+    await this.validateModuleParent(schema, null, dto.parentId);
+
     const result = await this.pool.query(
-      `INSERT INTO ${schema}.modules (name, code, icon, description, sort_order, is_custom)
-     VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING *`,
-      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sort_order ?? 0],
+      `INSERT INTO ${schema}.modules (name, code, icon, description, sort_order, is_custom, parent_id)
+     VALUES ($1, $2, $3, $4, $5, TRUE, $6) RETURNING *`,
+      [dto.name, dto.code, dto.icon ?? null, dto.description ?? null, dto.sort_order ?? 0, dto.parentId ?? null],
     );
     return result.rows[0];
   }

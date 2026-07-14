@@ -18,6 +18,7 @@ interface FormItem {
   has_table?: boolean; has_sp?: boolean; created_at: string;
   table_name?: string | null; sp_name?: string | null; grid_query?: string | null; icon?: string | null;
   display_mode?: 'modal' | 'inline' | null; modal_width?: number | null;
+  recreate_sp?: boolean | null;
 }
 interface TenantItem { id: string; slug: string; name: string; }
 
@@ -221,7 +222,10 @@ export class AdminBuilderComponent implements OnInit {
   private resetAdvancedFields(form: FormItem | null): void {
     this.tableMode.set(form?.table_name ? 'existing' : 'new');
     this.selectedExistingTable.set(form?.table_name ?? null);
-    this.recreateSp.set(true);
+    // El valor guardado gana sobre el default — si no, el toggle siempre
+    // aparece marcado y guardar sin tocarlo pisa un SP a mano (ver
+    // docs/known-bugs.md, FormGeneratorService.processForm()).
+    this.recreateSp.set(form?.recreate_sp ?? true);
     this.spNameOverride.set(form?.sp_name ?? '');
     this.formIcon.set(form?.icon ?? '');
     this.gridQueryText.set(this.resolveGridQueryText(form));

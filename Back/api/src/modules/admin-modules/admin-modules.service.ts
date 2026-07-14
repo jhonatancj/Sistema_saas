@@ -38,6 +38,7 @@ export class AdminModulesService {
 
   async updateModule(tenantId: string, moduleId: number, dto: {
     name?: string; icon?: string; description?: string; sortOrder?: number; isActive?: boolean;
+    parentId?: number | null;
   }) {
     const schema = await this.resolveTenantSchema(tenantId);
     return this.modulesService.updateTenantModule(schema, moduleId, dto);

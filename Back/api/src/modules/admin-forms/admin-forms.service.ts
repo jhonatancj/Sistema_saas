@@ -74,7 +74,7 @@ export class AdminFormsService {
       jsonForm: dto.jsonForm ?? { version: 1, root: [] },
       tableName: dto.tableName ?? null,
       spName: dto.spName ?? null,
-      recreateSp: dto.recreateSp ?? true,
+      recreateSp: dto.recreateSp,
       gridQuery: dto.gridQuery ?? null,
       icon: dto.icon ?? null,
       displayMode: dto.displayMode ?? null,
@@ -95,7 +95,7 @@ export class AdminFormsService {
       jsonForm: dto.jsonForm ?? current.json_form,
       tableName: dto.tableName !== undefined ? dto.tableName : current.table_name,
       spName: dto.spName !== undefined ? dto.spName : current.sp_name,
-      recreateSp: dto.recreateSp ?? true,
+      recreateSp: dto.recreateSp,
       gridQuery: dto.gridQuery !== undefined ? dto.gridQuery : current.grid_query,
       icon: dto.icon !== undefined ? dto.icon : current.icon,
       displayMode: dto.displayMode !== undefined ? dto.displayMode : current.display_mode,
@@ -131,7 +131,7 @@ export class AdminFormsService {
     const schema = this.tenantSchema(tenantSlug);
     const result = await this.pool.query(
       `SELECT id, slug, name, has_table, has_sp, table_name, sp_name, grid_query, icon,
-              display_mode, modal_width, created_at, updated_at
+              display_mode, modal_width, recreate_sp, created_at, updated_at
        FROM ${schema}.forms WHERE deleted_at IS NULL ORDER BY name`,
     );
     return result.rows;
@@ -141,7 +141,7 @@ export class AdminFormsService {
     const schema = this.tenantSchema(tenantSlug);
     const result = await this.pool.query(
       `SELECT id, slug, name, json_form, has_table, has_sp, table_name, sp_name, grid_query, icon,
-              display_mode, modal_width, created_at, updated_at
+              display_mode, modal_width, recreate_sp, created_at, updated_at
        FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
       [slug],
     );
@@ -179,7 +179,7 @@ export class AdminFormsService {
       jsonForm: dto.jsonForm ?? { version: 1, root: [] },
       tableName: dto.tableName ?? null,
       spName: dto.spName ?? null,
-      recreateSp: dto.recreateSp ?? true,
+      recreateSp: dto.recreateSp,
       gridQuery: dto.gridQuery ?? null,
       icon: dto.icon ?? null,
       displayMode: dto.displayMode ?? null,
@@ -201,7 +201,7 @@ export class AdminFormsService {
       jsonForm: dto.jsonForm ?? current.json_form,
       tableName: dto.tableName !== undefined ? dto.tableName : current.table_name,
       spName: dto.spName !== undefined ? dto.spName : current.sp_name,
-      recreateSp: dto.recreateSp ?? true,
+      recreateSp: dto.recreateSp,
       gridQuery: dto.gridQuery !== undefined ? dto.gridQuery : current.grid_query,
       icon: dto.icon !== undefined ? dto.icon : current.icon,
       displayMode: dto.displayMode !== undefined ? dto.displayMode : current.display_mode,

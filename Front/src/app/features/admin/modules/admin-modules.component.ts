@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ApiService } from '../../../core/services/api.service';
@@ -10,6 +10,7 @@ interface ApiResp<T> { success: boolean; data: T; }
 interface PublicModule {
   id: number; name: string; code: string; icon: string; description?: string;
   tenant_name?: string | null; tenant_code?: string | null; rubro_id?: number | null;
+  parent_id?: number | null;
   sort_order: number; is_active: boolean; forms: string[]; created_at?: string;
 }
 
@@ -57,11 +58,20 @@ export class AdminModulesComponent implements OnInit {
   readonly showCreate = signal(false);
   newName = ''; newCode = ''; newIcon = ''; newDescription = ''; newTenantName = ''; newTenantCode = '';
   newRubroId: number | null = null;
+  newParentId: number | null = null;
 
   // Edición de un módulo ya existente
   editName = ''; editIcon = ''; editDescription = ''; editSortOrder = 0; editIsActive = true;
   editTenantName = ''; editTenantCode = ''; editRubroId: number | null = null;
+  editParentId: number | null = null;
   readonly savingEdit = signal(false);
+
+  // Opciones del selector "Módulo padre" — cualquier módulo salvo el que se
+  // está editando (la validación real de ciclo/profundidad la hace el
+  // backend; este filtro solo evita la opción más obviamente rota).
+  readonly parentOptions = computed(() =>
+    this.modules().filter((m) => m.id !== this.selected()?.id),
+  );
 
   ngOnInit(): void {
     this.breadcrumbs.set([
@@ -84,6 +94,7 @@ export class AdminModulesComponent implements OnInit {
     this.editTenantName = m.tenant_name ?? '';
     this.editTenantCode = m.tenant_code ?? '';
     this.editRubroId = m.rubro_id ?? null;
+    this.editParentId = m.parent_id ?? null;
     this.activeTab.set('edit');
     this.loadRoles(m.id);
   }
@@ -96,11 +107,12 @@ export class AdminModulesComponent implements OnInit {
       tenantName: this.newTenantName || undefined,
       tenantCode: this.newTenantCode || undefined,
       rubroId: this.newRubroId ?? undefined,
+      parentId: this.newParentId ?? undefined,
     }).subscribe({
       next: (res) => {
         this.modules.update((m) => [...m, { ...res.data, forms: [] }]);
         this.showCreate.set(false);
-        this.newName = ''; this.newCode = ''; this.newIcon = ''; this.newDescription = ''; this.newTenantName = ''; this.newTenantCode = ''; this.newRubroId = null;
+        this.newName = ''; this.newCode = ''; this.newIcon = ''; this.newDescription = ''; this.newTenantName = ''; this.newTenantCode = ''; this.newRubroId = null; this.newParentId = null;
         this.notification.success('Módulo creado.');
         this.selectModule({ ...res.data, forms: [] });
       },
@@ -121,6 +133,7 @@ export class AdminModulesComponent implements OnInit {
       tenantName: this.editTenantName || undefined,
       tenantCode: this.editTenantCode || undefined,
       rubroId: this.editRubroId ?? undefined,
+      parentId: this.editParentId,
     }).subscribe({
       next: () => {
         this.savingEdit.set(false);

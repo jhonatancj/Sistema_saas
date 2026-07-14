@@ -81,6 +81,7 @@ BEGIN
     CREATE TABLE IF NOT EXISTS %I.modules (
       id          BIGINT       NOT NULL GENERATED ALWAYS AS IDENTITY,
       public_id   BIGINT,
+      parent_id   BIGINT,
       name        VARCHAR(100) NOT NULL,
       code        VARCHAR(50)  NOT NULL,
       icon        VARCHAR(50),
@@ -91,8 +92,9 @@ BEGIN
       created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
       updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
       CONSTRAINT pk_modules PRIMARY KEY (id),
-      CONSTRAINT uq_modules_code UNIQUE (code)
-    )', v_schema_name);
+      CONSTRAINT uq_modules_code UNIQUE (code),
+      CONSTRAINT fk_modules_parent FOREIGN KEY (parent_id) REFERENCES %I.modules(id) ON DELETE SET NULL
+    )', v_schema_name, v_schema_name);
 
   EXECUTE format('
     CREATE TABLE IF NOT EXISTS %I.module_forms (
@@ -196,6 +198,7 @@ BEGIN
         icon        VARCHAR(100),
         display_mode VARCHAR(20) NOT NULL DEFAULT ''modal'',
         modal_width  INT,
+        recreate_sp BOOLEAN      NOT NULL DEFAULT TRUE,
         is_system   BOOLEAN      NOT NULL DEFAULT FALSE,
         created_by  UUID,
         created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),

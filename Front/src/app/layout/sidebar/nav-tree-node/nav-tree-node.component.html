@@ -1,0 +1,28 @@
+@if (node().children && node().children!.length > 0) {
+  <button class="ntn__item" [class.ntn__item--active]="expanded()" (click)="toggle()" [title]="node().label"
+          [style.paddingLeft.px]="8 + (depth() - 1) * 12">
+    <app-nav-icon [name]="node().icon || 'fa-solid fa-folder'" />
+    <span class="ntn__label">{{ node().label }}</span>
+    <svg class="ntn__chevron" [class.ntn__chevron--open]="expanded()"
+         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+    </svg>
+  </button>
+
+  @if (expanded()) {
+    <div class="ntn__children">
+      @for (child of node().children!; track $index) {
+        <app-nav-tree-node [node]="child" [depth]="depth() + 1" />
+      }
+    </div>
+  }
+} @else {
+  <a class="ntn__leaf" [routerLink]="node().route" [queryParams]="node().queryParams"
+     routerLinkActive="ntn__leaf--active" [style.paddingLeft.px]="8 + (depth() - 1) * 12">
+    <app-nav-icon [name]="node().icon || 'fa-solid fa-circle-dot'" />
+    <span class="ntn__label">{{ node().label }}</span>
+    @if (node().badge) {
+      <span class="ntn__badge">{{ node().badge }}</span>
+    }
+  </a>
+}

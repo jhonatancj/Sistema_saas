@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.forms (
   icon        VARCHAR(100),
   display_mode VARCHAR(20) NOT NULL DEFAULT 'modal',
   modal_width  INT,
+  recreate_sp BOOLEAN      NOT NULL DEFAULT TRUE,
   is_system   BOOLEAN      NOT NULL DEFAULT FALSE,
   created_by  UUID,
   created_at  TIMESTAMPTZ  DEFAULT NOW(),
@@ -54,6 +55,11 @@ ALTER TABLE public.forms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 -- default del componente. Ver docs/adr/011-form-display-mode.md.
 ALTER TABLE public.forms ADD COLUMN IF NOT EXISTS display_mode VARCHAR(20) NOT NULL DEFAULT 'modal';
 ALTER TABLE public.forms ADD COLUMN IF NOT EXISTS modal_width  INT;
+
+-- Ver Back/database/12_forms_recreate_sp.sql (misma columna, script dedicado
+-- ya aplicado a la DB real — se agrega también acá para que un entorno nuevo
+-- desde cero (`06_public_forms.sql` solo) nazca con la columna).
+ALTER TABLE public.forms ADD COLUMN IF NOT EXISTS recreate_sp BOOLEAN NOT NULL DEFAULT TRUE;
 
 DO $$
 BEGIN

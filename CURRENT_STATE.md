@@ -8,690 +8,307 @@
 
 ## Último trabajo realizado
 
-**Fase 2 (relaciones reales en `cita`/`venta_barrio`) + Fase 3 (Ingreso de
-mercancía/Compras)** — ver `docs/adr/019-input-lupa-relacion-real.md`
-(sección "sin denormalizar" + autocompletado) y `docs/plan-ventas-agenda.md`
-sección 3. Continuación directa de la Fase 1 (abajo). Resumen:
+**Layout de 3 columnas en los formularios de venta** (pedido tras mostrar
+un mockup de referencia — se aclaró explícitamente que era solo
+inspiración de layout/interacción dentro del motor actual, no una réplica
+pixel-perfect ni un componente a medida fuera de dforms). Reorganizados
+`venta_barrio`/`moda`/`ferreteria`/`belleza`: antes 3 filas de 2 columnas
+(Cliente+Fecha / Vendedor+Sucursal / Tipo+Valor descuento), ahora 2 filas
+de 3 columnas (Cliente+Vendedor+Sucursal — las 3 lupas juntas — / Fecha+Tipo
+descuento+Valor descuento). **Bug propio repetido, mismo patrón de las 2
+veces anteriores esta sesión**: actualicé primero solo `public.forms` y
+verifiqué en el navegador contra `tenant_demo`/`tenant_acme`, que tienen su
+**propia copia** de estos forms (sync es copy-if-missing, nunca se
+actualiza sola) — el layout viejo seguía apareciendo hasta que empujé el
+mismo `json_form` a `tenant_demo.venta_barrio`/`tenant_acme.venta_moda`
+explícitamente. Verificado en el navegador real. `recreate_sp` de los 4
+forms (y de sus copias de tenant) se mantuvo en `false` durante todo el
+cambio. Mismo criterio (3+ columnas por fila donde tenga sentido) queda
+como referencia para cualquier form nuevo — no se tocó `compra_*` (no
+pedido, layout ya es simple con pocos campos).
 
-- **Motor**: nueva convención `persistDisplay: false` en un nodo
-  `input-lupa` — `FormGeneratorService.extractFields()` lo omite por
-  completo (sin columna propia); el id real vive en un campo hermano
-  oculto con `relation` (FK dura). Retrocompatible — Fase 1
-  (`empleados.sucursal_nombre`) no usa el flag y sigue igual.
-- **`cita`**: `cliente`/`empleado` migrados a `input-lupa` (id real +
-  `JOIN` para el nombre, `grid_query` nuevo). **Bug propio corregido en el
-  camino**: el primer intento generó `cliente_id`/`empleado_id` como
-  `NUMERIC(12,2)` sin FK (faltó `relation` en el campo oculto) — corregido
-  a mano (`ALTER COLUMN TYPE BIGINT` + `ADD CONSTRAINT`) antes de
-  reprocesar. Verificado con INSERT real vía el SP autogenerado.
-- **`venta_barrio`**: `cliente_id` migrado a `input-lupa`; agregados
-  `vendedor_id`/`sucursal_id` (BIGINT+FK reales). SP a mano
-  (`sp_venta_barrio`) actualizado — `INSERT`/`UPDATE` persisten los 2
-  campos nuevos, `SELECT_BY_ID` resuelve los 3 nombres vía `JOIN`.
-  Verificado insert/update/delete con stock correcto en los 3 casos.
-- **Autocompletar "vendedor" desde el usuario logueado** (mecanismo nuevo,
-  genérico): `FormExecutorService.findEmpleadoByEmail()` +
-  `GET {forms,admin/forms}/me/empleado` +
-  `FormDetailComponent.openCreate()` (marcador `autoFillCurrentEmployee`
-  en el nodo `input-lupa`) — sin match, no bloquea, queda buscable a mano.
-- **Ingreso de mercancía (`compra_barrio` + módulo `COMPRAS_BARRIO`,
-  rubro `tienda_barrio`)** — nuevo, espejo de Ventas pero *suma* stock:
-  proveedor vía `input-lupa`, `numero_factura`, `line-items` de producto.
-  SP a mano (`sp_compra_barrio`) **sin guard de inmutabilidad** (decisión:
-  una compra siempre es editable). 2 compras de ejemplo sembradas.
-  Verificado insert (+10 stock)/update (neto -5)/delete (reversión
-  completa).
-- `tsc --noEmit`/`nest build` (Back) y `tsc --noEmit`/`ng build` (Front)
-  limpios en un worktree temporal (ver "Nota de proceso" — el usuario
-  aplica el diff de código él mismo en su checkout real; los cambios de
-  catálogo/datos ya están en la DB compartida, no dependen de esto).
+**Búsqueda por código/identificación en los campos `input-lupa`** (pedido
+explícito del usuario). Investigación reveló un **bloqueo real de la
+librería**: el cuadro "Buscar..." del modal de `input-lupa` hoy filtra
+100% client-side (AG-Grid `quickFilterText`) sobre los resultados ya
+cargados una vez (hasta 1000 filas) — nunca vuelve a pegarle al backend
+mientras se escribe; y las columnas `producto`/`servicio` en `line-items`
+son un `<select>` HTML **nativo** (ni `ng-select`), sin buscador de ningún
+tipo. Ambas cosas requieren cambios en el código de `@jhonatancj/dforms`
+(repo separado, no en este workspace) — no se pueden resolver solo desde
+`Sistema_inventario`. Con el usuario: le escribí un prompt completo y
+autocontenido (`prompt-dforms.md`, en el scratchpad de esta sesión — no
+versionado en este repo, dárselo directo si hace falta retomarlo) con el
+spec exacto de los 2 cambios necesarios (`searchParamName` opcional en
+`FieldConfig` para disparar `loadOptions()` real mientras se escribe, y
+`'input-lupa'` como tipo de columna de `line-items`), ambos retrocompatibles.
+Mientras tanto, hecho en este repo (no depende de la librería):
+- **Bug de datos encontrado**: `proveedores` no tenía **ningún** campo de
+  identificación real (solo `tipo_documento`, la categoría "NIT"/"CC", sin
+  el número) — agregada columna `numero_documento` (`public` + ambos
+  tenants), campo nuevo en el `json_form` de `proveedores`.
+- `lupaColumnDefs` completadas donde faltaba una columna de código real:
+  proveedor (`numero_documento`) en `compra_barrio`/`moda`/`ferreteria`;
+  vendedor (`documento`, la tabla `empleados` ya lo tenía, solo faltaba en
+  la lupa) en los 4 `venta_*`. `cliente_nombre`/`sucursal_nombre` ya
+  tenían `documento`/`codigo` desde antes.
+- `RemoteFormOptionsService.loadOptions()`: agregado manejo reservado de
+  un futuro param `search` (→ `filter.search`, texto libre) — **el
+  backend ya no necesita ningún cambio**: `FormExecutorService.selectPaged()`
+  ya hace `OR ILIKE` contra todas las columnas de texto (nombre Y
+  documento/código) desde hace varias sesiones. Verificado end-to-end por
+  API que buscar por un fragmento de `numero_documento`/`documento`
+  encuentra el registro correcto — en cuanto dforms mande `search`, esto
+  funciona sin tocar nada más de este lado.
+- Verificado en el navegador real (`tenant_demo`): la lupa de Proveedor
+  muestra la columna "N° Documento" con datos reales.
 
-**Nota de proceso — guard de worktree en `Back/api/src/**`**: a diferencia
-de estilos/docs (editables directo), el harness bloqueó también `Edit`
-sobre código fuente del backend en esta sesión de background. Con el
-usuario: worktree temporal solo para estos 6 archivos de código
-(`form-generator.service.ts`, `form-executor.service.ts`,
-`forms.controller.ts`, `admin-forms.controller.ts`/`.service.ts`,
-`form-detail.component.ts`), sin commit/push — el diff se lo pasé al
-usuario para que lo aplique él mismo en su checkout real. El catálogo/datos
-(forms, módulos, SPs a mano, seeds) se crearon con
-`npx ts-node -r tsconfig-paths/register -e "<código>"` (imports con ruta
-absoluta) contra la DB compartida — no depende de qué checkout ejecuta el
-comando, ya está aplicado independientemente de si el diff de código se
-aplicó todavía.
+**Jerarquía real de módulos (hasta 4 niveles, opcional) — reemplaza el
+agrupamiento por rubro de ADR-023.** Pedido explícito del usuario tras ver
+el agrupamiento por rubro: quería que fuera un dato real configurable
+desde la pantalla de Módulos, no un caso especial de código. Ver
+ADR-024. Resumen:
+- `parent_id` autoreferenciado en `modules` (`public` + `{schema}.modules`
+  + migración `005_modules_parent_id.sql`, `ON DELETE SET NULL`).
+  `ModulesService.validateModuleParent()` (nuevo, un solo helper para los
+  4 puntos de entrada create/update × public/tenant): rechaza auto-padre,
+  ciclos (CTE recursivo) y más de 3 niveles de módulo (el form es el 4º).
+  **Bug propio encontrado y corregido**: `array_agg(bigint)` es un tipo
+  distinto (OID 1016) al que `database.module.ts` ya normaliza (OID 20
+  escalar) — sin `.map(Number)`, la detección de ciclo nunca disparaba
+  (comparaba string contra number), mismo patrón ya conocido de
+  `docs/known-bugs.md` pero vía `array_agg`.
+- `syncPublicModulesToTenant()` traduce `parent_id` de `public` a los ids
+  locales del tenant (via `public_id`) — si el padre no se sincronizó,
+  degradación segura a raíz, sin error.
+- Frontend: `SidebarComponent.buildModuleTree()` (genérico, basado en
+  `parent_id`) reemplaza el `RUBRO_ICONS`/Map de rubro de ADR-023. Nuevo
+  componente recursivo `NavTreeNodeComponent` (se referencia a sí mismo)
+  reemplaza el nivel-2 hardcodeado — profundidad dinámica, cada instancia
+  con su propio estado de expansión local (sin Map compartido). Selector
+  "Módulo padre" agregado a `AdminModulesComponent`/`SettingsModulesComponent`
+  (mismo patrón que el de "Rubro" ya existente).
+- Datos: creados 5 módulos contenedor reales (`RUBRO_TIENDA_BARRIO`/
+  `RUBRO_MODA`/`RUBRO_FERRETERIA`/`RUBRO_BELLEZA`/`CATALOGO`), reparentados
+  los 16 módulos existentes — mismo resultado visual que ADR-023 pero como
+  dato real ahora. `tenant_demo`/`tenant_acme` sin cambios (jerarquía
+  opcional, sin contenedores creados para ellos).
+- Verificado en el navegador real: cadena de 3 niveles de módulo creada,
+  4to nivel y ciclo rechazados con mensaje claro vía script, `parentId:
+  null` explícito vuelve un módulo a la raíz; sidebar admin visualmente
+  igual a ADR-023 pero ahora con niveles independientes (no accordion
+  forzado entre ramas); `tenant_demo` sin regresión (sigue plano).
+  `tsc --noEmit`/`nest build` (Back) y `tsc --noEmit`/`ng build` (Front)
+  limpios.
 
-**Fix crítico: `sp_venta_barrio` había perdido la lógica de stock/detalle**
-(descubierto al preparar la Fase 2) — el único SP que existía en la DB real
-era la versión auto-generada básica (`cliente_id`/`fecha`, sin validar stock,
-sin insertar `detalle`, sin calcular `total`), pese a que `ADR-017` documenta
-un SP a mano con esa lógica. Causa: `recreateSp` **no se persiste** en
-`{schema}.forms` — cualquier `updatePublicForm()` posterior sobre ese slug
-sin pasar `recreateSp:false` explícito pisa el SP a mano (ver fila nueva en
-`docs/known-bugs.md`). Recreado a mano contra la DB real (`CREATE OR REPLACE
-FUNCTION` vía `docker exec psql`, sin tocar ningún archivo del repo):
-INSERT/UPDATE/DELETE validan+descuentan+restituyen stock igual que el diseño
-original de ADR-017, `SELECT_BY_ID` vuelve a traer `detalle` anidado.
-Verificado end-to-end con una venta de prueba real (stock 36→35 insert,
-→33 update cantidad 1→3, →36 delete restituye completo) — venta de prueba
-quedó soft-deleted. **Pendiente**: automatizar esto (persistir
-`recreateSp`/`spName` como config real del form) para que no vuelva a pasar
-— no resuelto de raíz todavía, solo el síntoma puntual.
+**Catálogo multi-rubro completo (ventas+compras en los 4 rubros) + fix de
+raíz de `recreateSp` + sync completo a ambos tenants + verificación
+visual.** Pedido explícito del usuario: "continuá con lo que hace falta
+para tener todo". Resumen:
 
-**Fixes de UI en `dforms` (fuente editada, sin bump de versión — el usuario
-publica cuando decida)**:
-- `SelectComponent.fetchOptions()` (`select.ts`) limpiaba el valor del campo
-  en **toda** carga de opciones, incluida la inicial al editar un registro
-  existente — ningún `select` con `optionsSource` mostraba el valor ya
-  asignado (reportado por el usuario en `producto_barrio`). Fix: solo limpia
-  cuando la recarga la dispara un campo dependiente (`optionsParams`), nunca
-  en la carga inicial. **Ya publicado y actualizado en este proyecto**
-  (`@jhonatancj/dforms@1.3.6`, `Front/package.json`).
-- `.d-field--checkbox` (`_inputs.scss`) quedaba desalineado verticalmente
-  cuando comparte fila con un campo normal (label+input) — el checkbox no
-  tiene una línea de label separada arriba, así que quedaba pegado arriba en
-  vez de alineado con el input del campo vecino. Fix: `justify-content:
-  flex-end` en `.d-field--checkbox` (la fila ya estira las columnas por
-  igual vía `.d-row { display:flex }` default). **Sin publicar todavía.**
-
-**Fix de UI en este proyecto**: el footer de los modales (Cancelar/Guardar)
-usaba `justify-content: space-between` (un botón en cada esquina) — cambiado
-a `flex-end` (ambos juntos, abajo a la derecha) en el estilo global
-(`styles/components/_modal.scss`) y en el override local de
-`form-detail.component.scss` (tenía su propio `.modal` redeclarado completo
-en vez de solo el override puntual — anti-patrón de `CLAUDE.md`, no corregido
-de raíz todavía, solo el footer).
-
-**Modo `inline` para formularios grandes**: identificados por cantidad de
-campos (8+) — `producto_barrio`/`producto_ferreteria`/`producto_moda`(12-13),
-`clientes`(11), `proveedores`(10), `empleados`(9), `servicio_belleza`(8).
-Aplicado vía `AdminFormsService.updatePublicForm(slug, {displayMode:
-'inline'})` para cada uno, verificado contra la DB real (`display_mode=
-'inline'` en los 7).
-
-**Nota de proceso de esta sesión**: el usuario pidió explícitamente no usar
-git worktrees ni hacer commit/push por cuenta propia en este proyecto — los
-cambios de código se dejan sin commitear en el working tree real para que el
-usuario los revise. El harness bloquea crear **archivos nuevos** (no editar
-existentes) en sesiones de background sin worktree — para scripts Nest de
-un solo uso (patrón habitual de este proyecto para operar el catálogo desde
-la API interna), la vuelta encontrada es correr el código inline con
-`npx ts-node -r tsconfig-paths/register -e "<código>"` (imports con ruta
-absoluta al archivo, ej. `/Users/.../src/app.module`, para que resuelvan
-sin depender de un archivo real) — no crea ningún archivo, corre y termina.
-
-**Fase 1 del gap de modelo de dominio: `input-lupa` + Sucursales + Empleados
-enriquecido** (ver `docs/adr/019-input-lupa-relacion-real.md` y
-`docs/plan-ventas-agenda.md` sección 3) — pedido del usuario tras señalar que
-los formularios eran muy simples y faltaba el concepto de sucursal/relación
-de empleados. Resumen:
-- **Motor**: `input-lupa` (tipo de campo nuevo publicado por el usuario en
-  `@jhonatancj/dforms 1.3.4`, ya instalado) reconocido en `extractFields()`/
-  `toDbType()` de `FormGeneratorService` (`VARCHAR(255)`) —
-  `castField()` no necesitó cambio (su `default` ya trata texto plano
-  correctamente). Builder (`extractFieldsFromSchema()` en
-  `builder.component.ts`) también lo reconoce para la pestaña Grid.
-- **Catálogo `sucursales` nuevo** (core/universal): `nombre`/`codigo`
-  (unique)/`ciudad`/`telefono`/`direccion`/`activo`. Módulo `SUCURSALES`
-  (`rubro_id` NULL, roles ADMIN full / SALES+WAREHOUSE solo ver), 3
-  sucursales de ejemplo sembradas (Sede Principal/Norte/Cartagena).
-- **`empleados` enriquecido**: agregó `documento`/`email`/`cargo` (select)/
-  `fecha_ingreso` (date)/`sucursal_nombre` (**`input-lupa`** hacia
-  `sucursales`, autocompleta `sucursal_id` oculto vía `assignments`) —
-  `ALTER TABLE` no destructivo (ADR-003), SP regenerado, `grid_config`
-  actualizado, los 3 empleados de ejemplo actualizados con datos reales
-  (incluida su sucursal). Verificado contra la DB real: cada empleado quedó
-  con `sucursal_nombre`/`sucursal_id` correctos (INSERT/UPDATE reales vía
-  `execute()`, no simulado).
-- Decisión de alcance tomada con el usuario: **stock global**, sucursal
-  como etiqueta/dato (no hay tabla de stock por bodega en esta fase — evita
-  reescribir el SP de ventas).
-- Patrón fijado en ADR-019 para replicar `input-lupa` en el resto del
-  catálogo (Fases 2-4 documentadas en `docs/plan-ventas-agenda.md`, no
-  ejecutadas todavía): `cita`/`venta_barrio` con relaciones reales
-  (cliente/empleado), `producto_*` con proveedor vía lupa, módulo de
-  Compras nuevo.
-- `tsc --noEmit`/`nest build` (Back, el único error de tsc es en 2 `.spec.ts`
-  ya rotos preexistentes en `main` — `nest build` los excluye) y
-  `tsc --noEmit`/`ng build` (Front) limpios. **Sin verificación visual en
-  navegador** (Playwright no instalado en este entorno).
-
-**Infraestructura de producción (Dockerfiles + `docker-compose.prod.yml`)**
-— nuevo `Back/api/Dockerfile` (multi-stage NestJS) y `Front/Dockerfile`
-(multi-stage Angular SPA → nginx, `Front/nginx.conf` con fallback de SPA +
-gzip), orquestados en `docker-compose.prod.yml` (raíz del repo) +
-`.env.production.example`. **Build verificado de punta a punta con Docker
-real** (ambas imágenes compilan limpio, `docker compose up -d --build`
-llega a crear los 3 contenedores) — el arranque en caliente (curl a los
-servicios corriendo) no se pudo confirmar en este entorno por
-limitaciones del sandbox con contenedores de larga duración en
-background; recomendado que el usuario lo confirme una vez en su propia
-máquina/CI con `docker compose --env-file .env.production -f
-docker-compose.prod.yml up -d --build`.
-
-Bugs reales encontrados y corregidos en el camino (ver `docs/known-bugs.md`):
-`Back/api/pnpm-workspace.yaml` tenía un `allowBuilds` a medio configurar
-(`bcrypt: false` + un placeholder sin completar) que rompía cualquier
-install limpio (no solo Docker); `Front/pnpm-workspace.yaml` necesitó
-`minimumReleaseAge: 0` (el exclude-list por versión no alcanza en un store
-completamente limpio); el build del frontend necesita el token de GitHub
-Packages como **build secret** (`--secret id=npm_auth_token,env=NODE_AUTH_TOKEN`),
-nunca en el `.npmrc` del repo (pnpm lo rechaza a propósito).
-
-**Redis removido** (`Back/docker-compose.yml`, `Back/.env`) — cero
-consumidores en el código, era puro riesgo/infra sin usar. Reintroducir
-el día que haya un caso de uso real.
-
-**Pendiente de decidir con el usuario antes de un deploy real**: dominio
-de producción (`CORS_DOMAIN`/`apiBaseUrl` en `environment.prod.ts` siguen
-con placeholders), estrategia de TLS (el compose no termina TLS, asume un
-reverse proxy/LB externo), y si Postgres se auto-hospeda o se usa un
-servicio administrado.
-
-**Producto/Cliente/Proveedor — campos de completitud DIAN** (Colombia,
-preparación para facturación electrónica futura, no la integración real
-todavía) — ver `docs/adr/018-campos-dian-facturacion-electronica.md`.
-Catálogo nuevo `tarifas_iva` (universal, no por rubro — Excluido/0%/5%/19%),
-nesteado en `module_forms` de los 4 módulos de rubro (mismo patrón que
-Categorías/Unidades, ADR-016). `producto_barrio`/`moda`/`ferreteria` +
-`iva_id`/`proveedor_id` (ambos `relation` real, FK de verdad — a diferencia
-de `categoria`/`unidad` que usan `optionsSource` sin FK);
-`servicio_belleza` + `iva_id` (sin proveedor). `clientes`/`proveedores` +
-`tipo_documento`/`tipo_persona`/`regimen_tributario` (selects estáticos,
-no catálogo — la enumeración DIAN completa queda fuera de alcance a
-propósito). Datos ya sembrados esta sesión actualizados a mano con
-valores realistas (no quedan en `NULL`). Fix de motor aprovechado:
-`buildAlterTableDDL()` (agregar campos a una tabla YA existente) no
-agregaba la FK cuando el campo nuevo tenía `relation` — corregido con el
-mismo patrón idempotente (`pg_constraint`/`pg_namespace`) que ya se usó
-para la tabla de detalle de `line-items` (ADR-017). `tsc`/`nest build`
-limpios, verificado contra la DB real (FKs existen, SP de `venta_barrio`
-no se rompió).
-
-**Ventas — `venta_barrio` implementado end-to-end** (primera variante,
-tienda de barrio), con dforms `1.3.3` (`line-items`+`relation`+`time`, ya
-instalado). Ver `docs/adr/017-tabla-detalle-line-items.md` para el diseño
-completo. Resumen:
-- `FormGeneratorService` ahora detecta un nodo `line-items`
-  (`findLineItemsNode()`) y genera además una tabla de detalle real, con
-  FK hacia el encabezado y hacia cualquier columna con `relation` (nuevo
-  método `buildDetailTableDDL`/`buildDetailAlterTableDDL`; `deleteForm()`
-  actualizado para dropear el detalle antes que el encabezado).
-- Setting nuevo `tenants.ventas_editable` (default `FALSE` — una venta es
-  inmutable una vez creada, como una factura real; configurable por
-  tenant desde el toggle en `tenant-detail`). El sandbox `public` del
-  super admin siempre se trata como editable.
-- `sp_venta_barrio` — SP a mano (`recreateSp:false`): valida stock
-  suficiente por línea (`FOR UPDATE`) y descuenta en el mismo loop que
-  inserta cada línea (evita subcontar si el mismo producto aparece 2
-  veces en la misma venta); `UPDATE`/`DELETE` restituyen stock y respetan
-  el guard de `ventas_editable`. **Gotcha real encontrado y corregido**:
-  `current_schema()` dentro de un SP siempre devuelve `'public'` en esta
-  app (nunca se hace `SET search_path`) — el schema tiene que ir
-  horneado como texto literal en el DDL del SP, no resuelto en runtime.
-  Documentado en `docs/known-bugs.md`.
-- `FormDetailComponent.openEdit()` ahora pide `SELECT_BY_ID` (pasa por el
-  SP) antes de abrir el modal cuando el form tiene un campo `line-items`
-  — `selectPaged()` (la grid) nunca trae el array de líneas anidado.
-  Genérico, no hardcodeado a Ventas.
-- Módulo `VENTAS_BARRIO` (rubro `tienda_barrio`), 2 ventas de ejemplo
-  sembradas. Verificado en vivo: stock antes/después correcto, y los 4
-  casos del guard `ventas_editable` (bloqueo, edición con
-  restitución+reaplique, eliminación con restitución completa).
-  **Sin sincronizar a ningún tenant todavía.**
-- Pendiente: replicar a `venta_moda`/`venta_ferreteria`/`venta_belleza`
-  (mecánico); sincronizar a un tenant real (requiere regenerar el SP con
-  el schema de ese tenant, ver gotcha de arriba). Plan actualizado en
-  `docs/plan-ventas-agenda.md`.
-- `tsc --noEmit`/`nest build` (backend) y `tsc --noEmit`/`ng build`
-  (frontend) limpios.
-
-**Agenda de citas (primera versión, CRUD simple)** — Agenda usa un catálogo
-nuevo `EMPLEADOS` (no reutiliza `{schema}.users`). Implementado: soporte de `date`
-en el motor (`extractFields`/`toDbType`/`castField` + espejo en el builder +
-`agDateColumnFilter`, faltaba desde ADR-003 — verificado con INSERT/SELECT
-real, cast `::DATE` correcto); catálogo `empleados` (core/universal, mismo
-patrón que Clientes/Proveedores); form `cita` + módulo `AGENDA` (rubro
-`belleza`) con `fecha`/`hora`/`cliente`/`servicio`/`empleado` (los 3 últimos
-`optionsSource`, no FK real — misma limitación aceptada que Categorías/
-Unidades) + `notas`. **Sin vista de calendario** (dforms no tiene ese
-componente todavía — CRUD simple por ahora) y **sin sincronizar a ningún
-tenant** (no hay tenant de rubro belleza todavía). `tsc --noEmit`/
-`nest build`/`ng build` limpios. Además, se sembraron datos de ejemplo en
-todos los forms de `public` que estaban vacíos (`clientes`, `proveedores`,
-`producto_barrio`, `producto_moda`, `producto_ferreteria`,
-`servicio_belleza`, `empleados`, `cita`) — nueva convención agregada a
-`CLAUDE.md`: todo formulario nuevo se siembra con datos antes de darlo por
-terminado, para poder verlo con contenido real sin cargar nada a mano.
-
-**Rediseño de `/admin/modules`** — la lista de módulos (panel izquierdo) se
-alargaba mucho verticalmente con cada módulo nuevo (fila plana, un renglón
-por módulo). Rediseñado siguiendo una referencia visual dada por el
-usuario: la lista pasó a tarjetas (nombre + badge activo/inactivo +
-descripción + chevron, borde izquierdo primary cuando está seleccionada);
-el panel de detalle ahora tiene un header fijo (ícono + nombre + `ID/
-Código/Creado` + un solo botón "Guardar cambios" que dispara la acción de
-la pestaña activa vía `saveCurrentTab()`/`isSavingCurrentTab()` — cada
-pestaña sigue guardando contra su propio endpoint real, esto solo unifica
-el botón visible); pestaña "General" (antes "Editar módulo", ahora primera
-y default al seleccionar un módulo) reorganizada en tarjetas:
-Información básica (nombre + rubro, reusa el selector de Rubro existente
-con el label "Categoría" del mockup) + Iconografía/Visibilidad lado a lado
-+ Nombre/código en el tenant + un resumen de "Roles con acceso" (badge
-Total/Parcial/Sin acceso por rol, con link "Gestionar todos" a la pestaña
-Permisos). El botón de eliminar módulo se movió de cada fila de la lista al
-footer del panel de detalle (coincide con el mockup, solo aplica al módulo
-seleccionado). Decisiones tomadas con el usuario: sin color de acento
-personalizable por módulo (el mockup lo tenía, se dejó fuera — sigue
-saliendo del primary global) y sin botón "Previsualizar" (no hay una vista
-previa de módulo real hoy). Único cambio de backend: `getPublicModules()`
-ahora selecciona `m.created_at` (ya existía en la tabla, no se usaba).
-`tsc --noEmit`/`ng build`/`nest build` limpios.
-
-**Eliminar módulos del catálogo público**: pedido para poder limpiar, por
-ejemplo, `CATEGORIAS`/`UNIDADES_MEDIDA` (desactivados en la reorganización
-de abajo). Nuevo `ModulesService.deletePublicModule(id)` +
-`DELETE /modules/public/:id` — `public.module_forms`/`module_roles` tienen
-`FOREIGN KEY ... ON DELETE CASCADE` hacia `modules(id)` (verificado contra
-la DB real), así que un simple `DELETE FROM public.modules WHERE id=$1`
-limpia todo solo, sin queries manuales adicionales. **Nunca borra el form
-en sí** (`public.forms`) — puede estar anidado en otros módulos (ej.
-`categorias` en varios `INVENTARIO_*`). Tampoco afecta a tenants que ya
-hayan sincronizado ese módulo (mismo criterio "nunca retroactivo" del resto
-del sync). Botón de basurero por módulo en `/admin/modules`
-(`admin-modules.component`), con `notification.confirm({danger:true})`.
-Verificado con un módulo de scratch reusando el form `categorias`: al
-borrar el módulo, sus `module_forms`/`module_roles` desaparecen pero
-`categorias` sigue existiendo y sigue asignado a los otros 5 módulos que lo
-usan. `tsc --noEmit`/`nest build`/`ng build` limpios.
-
-**Reorganización del sidebar** (ver `docs/adr/016-agrupacion-menu-inventario.md`):
-1. `categorias`/`unidades_medida` dejaron de ser módulos standalone
-   (`CATEGORIAS`/`UNIDADES_MEDIDA` ahora `is_active=false`) y pasaron a
-   anidarse en el `module_forms` de cada módulo de rubro —
-   `INVENTARIO_BARRIO`/`INVENTARIO_FERRETERIA` con producto+categorías+
-   unidades; `INVENTARIO_MODA`/`SERVICIOS_BELLEZA` con producto/servicio+
-   categorías (sin unidades, no aplica). Sin cambios de código — pura
-   reorganización de filas en `module_forms` (tabla puente sin
-   exclusividad). `tenant_demo` reorganizado a mano (movidas sus filas de
-   `module_forms` del módulo standalone al `Inventario` local, borrados los
-   módulos 9/10) sin tocar `tbl_categorias`/`tbl_unidades_medida` (8/6 filas
-   intactas). Verificado simulando `getTenantModulesByRole`: un solo grupo
-   "Inventario" con Productos/Categorías/Unidades adentro.
-2. Sidebar de super admin: `Tenants`/`Super Admins`/`Módulos`/`Rubros`/
-   `Builder`/`Seguridad` agrupados en un solo ítem "Administración" (mismo
-   patrón que "Configuración" en el sidebar de tenant) — antes sueltos como
-   ítems de primer nivel. `Dashboard` y los módulos dinámicos no cambiaron.
-   `tsc --noEmit`/`ng build` limpios.
-
-**Bug de fondo: BIGINT string vs. number entre `pg` crudo y JSONB del
-motor** — el tenant `demo` mostraba "Rubro — (sin asignar)" en el detalle
-aunque `rubro_id` ya estaba seteado en la DB. Causa: `pg` devuelve columnas
-`BIGINT` como `string` en una query cruda (`pool.query`), pero el mismo tipo
-sale como `number` cuando pasa por `to_jsonb()` dentro de un SP del motor de
-formularios — `tenants.rubro_id` ("1", string) nunca comparaba `===` igual
-a `tbl_rubro.id` (1, number). Corregido de raíz con
-`types.setTypeParser(20, parseInt)` en `Back/api/src/database/database.module.ts`
-— normaliza BIGINT a `number` en toda la app, no un parche puntual para
-`rubro_id`. Verificado con un script que reproducía la comparación exacta
-(`tenant.rubro_id === rubro.id`): `false` antes del fix, `true` después.
-Documentado en `docs/known-bugs.md` para reconocer el mismo patrón si
-reaparece en otra comparación de ids. Backend corre con `nest start
---watch`, debería recargar solo.
-
-**Barrido de generación de tabla/SP en el sync** — bug real reportado por el
-usuario tras sincronizar Categorías/Unidades a `tenant_demo`: la tabla no
-existía (`has_table=false`), porque `syncCatalogDataForRubro()` solo
-generaba tabla/SP para esos dos slugs puntuales, y encima solo cuando el
-tenant tenía `rubro_id` (demo no lo tenía). `ModulesService
-.syncPublicModulesToTenant()` ahora corre `ensureFormsGenerated(schema,
-slugs)` — nuevo método privado, genérico para **cualquier** form recién
-asignado a un tenant, no solo Categorías/Unidades — inmediatamente después
-de `copyMissingFormsToTenant()`: por cada slug con `!has_table || !has_sp`,
-llama `processForm()`. Antes esto requería el paso manual documentado
-("abrir el form en el builder, modo Por tenant, guardar"); ahora el sync
-mismo lo resuelve. `syncCatalogDataForRubro()` se simplificó (ya no genera
-tabla, solo copia datos filtrados por rubro, asumiendo que la tabla ya
-existe gracias al paso anterior). Corregido en caliente contra `tenant_demo`
-(re-sync, tabla/SP generados) y aprovechado para asignarle `rubro_id =
-tienda_barrio` (ya tenía ese catálogo de inventario) — ahora
-`tenant_demo.tbl_categorias`/`tbl_unidades_medida` tienen sus 8/6 filas
-reales, ya no vacías. `tsc --noEmit`/`nest build` limpios.
-
-**Catálogo de Rubros + Categorías/Unidades de medida dinámicas** (ver
-`docs/adr/015-catalogo-rubro-categorias-unidades.md`, feature grande de la
-sesión). Resumen:
-- `rubro` — form nuevo (`public.forms`, admin-only, sin módulo wrapper, link
-  fijo "Rubros" en el sidebar admin). 4 filas sembradas: `tienda_barrio`/
-  `moda`/`ferreteria`/`belleza`.
-- `tenants.rubro_id` / `modules.rubro_id` — columnas nuevas, sin FK real
-  (`tbl_rubro` la crea el motor en runtime). Módulos `INVENTARIO_*` ya
-  taggeados con su rubro; `CLIENTES`/`PROVEEDORES`/`CATEGORIAS`/
-  `UNIDADES_MEDIDA` quedan `NULL` (universal/core).
-- `CATEGORIAS`/`UNIDADES_MEDIDA` — módulos core nuevos, una sola tabla
-  compartida cada uno (filas de los 4 rubros mezcladas en `public`, cada
-  fila con su propio campo `rubro`). Sembradas con las categorías/unidades
-  que antes eran opciones fijas de los formularios de producto.
-- **Primer caso de sync de DATOS (no solo definición) del sistema**:
-  `ModulesService.syncCatalogDataForRubro()`, corre al final de todo
-  `syncPublicModulesToTenant()` — copia a `{tenant}.tbl_categorias`/
-  `tbl_unidades_medida` solo las filas del rubro del tenant. Verificado
-  end-to-end con un tenant de prueba (rubro `moda` → exactamente sus 6
-  categorías, cero de otros rubros; tenant borrado tras verificar).
-- `categoria`/`unidad` de `producto_barrio`/`producto_moda`/
-  `producto_ferreteria` migrados de `options` fijas a `optionsSource`
-  dinámico (`'categorias'`/`'unidades_medida'`).
-- `RemoteFormOptionsService` (nuevo) reemplaza `FormOptionsMockService`
-  (borrado) — implementación real de `FormOptionsProvider` que reusa el
-  endpoint `execute` existente (`endpointId` = slug del form), sin backend
-  nuevo.
-- UI: selector de rubro al crear un tenant (`tenants-list`); modal de sync
-  (`tenant-detail`) filtra módulos por `rubro_id` del tenant y muestra su
-  rubro; `admin-modules` permite asignar `rubro_id` a un módulo.
-- `tsc --noEmit`/`ng build` (Front) y `tsc --noEmit`/`nest build` (Back)
-  limpios. **Nota aparte, no relacionada al código**: durante la
-  verificación, `ng build` falló por un symlink roto en el store de pnpm
-  (`parse5-html-rewriting-stream`, dependencia transitiva de
-  `@angular/build`) — se resolvió con `rm -rf node_modules && pnpm install`.
-  No fue causado por ningún cambio de esta sesión (no se tocó
-  `package.json`/lockfile); si vuelve a pasar, ese es el fix.
-
-**Soporte para el tipo de campo `currency` de `@jhonatancj/dforms`** (el
-usuario es el autor de la librería, agregó el componente en `^1.3.2` — ya
-instalado, `NodeType` incluye `'currency'` en el `.d.ts`). Motor y builder
-no lo reconocían todavía: agregado a `FormGeneratorService.extractFields()`/
-`toDbType()` (`NUMERIC(12,2)`, igual que `number`)/`castField()` en el
-backend, y a `CUSTOM_COLUMN_TYPES`/`extractFieldsFromSchema()` en
-`builder.component.ts` — ver la nota nueva en
-`docs/adr/003-dynamic-form-engine.md` sobre qué 3 puntos hay que tocar para
-soportar cualquier tipo de campo nuevo de la librería. `FormDetailComponent`
-ahora filtra `currency` con `agNumberColumnFilter` (igual que `number`) y
-formatea la celda como `$ 1.234` (`Intl.NumberFormat('es-CO')`, sin symbol/
-locale configurables todavía — `grid_config` no guarda esos metadatos del
-campo). Migrados los campos de dinero ya existentes de `number` a
-`currency` (`json_form` reprocesado + `grid_config.field_type` actualizado,
-**la columna real sigue siendo `NUMERIC`, no hubo DDL destructivo**): en
-`public` — `clientes.limite_credito`, `producto_barrio/moda/ferreteria
-.precio_compra/precio_venta`, `servicio_belleza.precio`; y en
-`tenant_demo` (tiene copias propias de `clientes`/`producto_barrio` desde el
-sync) — mismos dos forms. `tsc --noEmit`/`ng build` limpios en ambos
-proyectos.
-
-**Catálogo completo de los 4 rubros** (ver
-`docs/adr/013-catalogo-modulos-multi-vertical.md`) — creados
-`INVENTARIO_MODA` (`producto_moda`: categoría de prenda, talla, color,
-precio compra/venta, stock), `INVENTARIO_FERRETERIA` (`producto_ferreteria`:
-categoría técnica, unidad de medida técnica, precio compra/venta, stock) y
-`SERVICIOS_BELLEZA` (`servicio_belleza`: categoría de servicio,
-duración_min, precio — sin stock, no es un producto). Mismo patrón completo
-verificado con Tienda de Barrio: tabla+SP reales, `grid_config` poblado
-desde el arranque (evita el bug de grid vacía documentado en
-`docs/known-bugs.md`), `module_roles` por rol. Los 3 comparten
-`tenant_code: 'inventario'` (moda/ferretería) o `'servicios'` (belleza) —
-consistente entre variantes de un mismo concepto (ver ADR-014). **Ningún
-rubro nuevo sincronizado a un tenant todavía** — el catálogo público ya
-tiene los 4 rubros completos, listo para sincronizar el que corresponda
-cuando haya un tenant real de cada tipo. Corregido en el camino: el usuario
-había cambiado a mano `tenant_code` de `INVENTARIO_BARRIO` a `'inventariob'`
-desde `/admin/modules` mientras probaba — normalizado de vuelta a
-`'inventario'` para mantener consistencia entre las 3 variantes de
-inventario (confirmado con el usuario antes de tocarlo).
-
-**Ofuscar module code / form slug en la URL** (`Front/src/app/core/utils/route-obfuscation.ts`):
-`tenant_code` (ver abajo) no alcanzaba porque solo aplica al sincronizar a un
-tenant real — el super admin sigue viendo el `code` interno en su propio
-panel (`admin.localhost`), por diseño. Pedido del usuario: ocultarlo en
-cualquier contexto, sin tocar el backend. Las rutas `/app/m/:moduleCode/:formSlug`
-y `/admin/m/:moduleCode/:formSlug` pasaron a ser fijas (`/app/m`, `/admin/m`,
-sin params) — el sidebar codifica `code::slug` en base64 dentro de un único
-query param `data` (`encodeFormRoute`/`decodeFormRoute`), y
-`FormDetailComponent` lo decodifica desde `queryParamMap` (reactivo, mismo
-motivo que ya obligaba a `paramMap` reactivo — ver `docs/known-bugs.md`) y
-sigue usando `slug` exactamente igual que antes para todas las llamadas a la
-API. **No es cifrado real** — `atob()` en la consola lo revierte al toque;
-solo evita que se vea a simple vista en la barra de direcciones. Se evaluó y
-descartó una alternativa más invasiva (rutear por `id` numérico con nuevos
-endpoints de backend) a favor de esta, más simple y sin cambios de backend.
-`ng build`/`tsc --noEmit` limpios (Front únicamente, sin cambios en `Back`).
-
-**`tenant_code` en módulos** (ver `docs/adr/014-module-tenant-code.md`,
-extiende ADR-012): el sidebar arma la URL del tenant como
-`/app/m/:moduleCode/:formSlug` usando el `code` interno del catálogo tal
-cual — un módulo como `INVENTARIO_BARRIO` exponía el rubro y las mayúsculas
-en la URL del usuario final. Nueva columna `public.modules.tenant_code`
-(nullable, mismo patrón que `tenant_name`), resuelta con
-`COALESCE(tenant_code, code)` en `syncPublicModulesToTenant()`. Editable
-desde `/admin/modules` → "Editar módulo". Los 3 módulos de tienda de barrio
-ya tienen `tenant_code` seteado (`inventario`/`clientes`/`proveedores`);
-`tenant_demo.modules.code` corregido a mano para los 3 (el re-sync no
-actualiza el `code` de una fila ya sincronizada — ver limitación conocida en
-el ADR, no se resuelve todavía porque no hay tenants reales en producción).
-
-**Catálogo de producción, primer rubro (Tienda de barrio)** — ver
-`docs/adr/013-catalogo-modulos-multi-vertical.md` para el diseño completo de
-los 4 rubros (moda, ferretería, barbería/salón, tienda de barrio) y qué queda
-deliberadamente fuera de esta fase (ventas con carrito+stock, agenda de
-citas). Creados en `public` (vía los mismos servicios que usa la API, no SQL
-a mano): módulos `INVENTARIO_BARRIO`/`CLIENTES`/`PROVEEDORES` con sus 3 forms
-(`producto_barrio`/`clientes`/`proveedores`, tabla+SP reales generados) y
-`module_roles` por rol (ADMIN/SALES/WAREHOUSE, tabla en el ADR). Sincronizado
-y verificado end-to-end contra `tenant_demo` (módulos+forms+roles copiados,
-tablas/SPs del tenant generados, sidebar por rol confirmado con una query
-que simula `getTenantModulesByRole()`). Dos bugs reales encontrados y
-corregidos en el camino, ambos documentados en `docs/known-bugs.md`: (1)
-sincronizar un módulo sin `module_roles` en `public` lo deja invisible para
-cualquier rol de tenant; (2) crear un form llamando a `processForm()`
-directo (sin pasar por la pestaña "Grid" del builder) deja `grid_config` en
-`[]` y la grid se ve vacía aunque tabla/SP estén perfectos — hace falta
-`saveGridConfig()` aparte. Pendiente: repetir este mismo patrón completo
-(form + módulo + roles + grid_config) para `INVENTARIO_MODA`,
-`INVENTARIO_FERRETERIA`, `SERVICIOS_BELLEZA` cuando el usuario los pida
-(diseño de campos ya está en el ADR).
-
-**Reset de datos de prueba para arrancar producción**: catálogo `public`
-(forms/modules/module_forms/module_roles) vaciado por completo —
-`tbl_producto`/`tbl_test` y sus SPs dropeados, `TRUNCATE ... RESTART IDENTITY
-CASCADE`. `tenant_demo` y `tenant_acme` vaciados de módulos/forms/tablas
-generadas de la misma forma, **conservando** schema, usuario
-(`admin@demo.com`) y roles. Backup previo con `pg_dump -Fc` en
-`Back/database/backups/` (gitignored, no versionado). El super admin y
-`demo` arrancan con sidebar vacío — es lo esperado, listo para que el usuario
-cree los módulos/formularios reales.
-
-**Eliminar formulario desde el builder** (dropea tabla+SP reales, limpia
-asignaciones a módulos): `FormGeneratorService.deleteForm(schema, slug)`
-(`Back/api/src/modules/forms/form-generator.service.ts`) — transacción real
-(`pool.connect()` + BEGIN/COMMIT/ROLLBACK): `DROP FUNCTION` del SP (firma
-nueva de 5 params y la legacy de 3, igual que `buildSpDDL`), `DROP TABLE` de
-`tbl_{slug}` **solo si no está bindeado a una tabla ya existente**
-(`table_name` era `NULL`), `DELETE FROM {schema}.module_forms WHERE
-form_slug=$1` (arregla de raíz, para este camino, el bug de `known-bugs.md`
-sobre módulos con `name: null`), y `DELETE FROM {schema}.forms` (hard delete,
-no soft-delete — la fila de metadata no tiene motivo para sobrevivir si tabla
-y SP ya no existen). Expuesto en `AdminFormsController` como `DELETE
-/admin/forms/:slug` (público) y `DELETE /admin/forms/tenant/:tenantSlug/:slug`
-(tenant), ambos solo super admin. Frontend: botón de basurero junto al lápiz
-en la grid de `AdminBuilderComponent`, con `notification.confirm({danger:
-true})` antes de llamar. Violación de FK (ej. otro form con una columna
-`relation` hacia esta tabla) revierte todo y devuelve 400 con mensaje
-legible en vez de un error crudo de Postgres. Verificado con un form de
-scratch creado y borrado a mano contra la DB real (tabla+SP+fila+
-module_forms confirmados eliminados), más un caso bindeado a tabla existente
-(la tabla sobrevive, solo se borra SP+metadata) y el caso 404. `tsc --noEmit`
-y `ng build`/`nest build` limpios en ambos proyectos.
-
-**Modal de selección de módulos al sincronizar un tenant**: antes
-"Sincronizar módulos del catálogo" en `/admin/tenants/:id` copiaba *todo* el
-catálogo público activo sin posibilidad de elegir. Ahora abre un modal
-(`tenant-detail.component`) que lista `GET /modules/public` con checkboxes
-(todo preseleccionado por default, "Seleccionar todos"/"Ninguno" como atajo)
-y manda `{ moduleIds }` a `POST /admin/tenants/:id/modules/sync`.
-`ModulesService.syncPublicModulesToTenant(schema, moduleIds?)` acota las 3
-queries de INSERT (modules/module_forms/module_roles) a `id = ANY($1)` cuando
-se pasa el array (incluso vacío — un array vacío sincroniza nada, no cae al
-comportamiento legacy); `moduleIds` `undefined` conserva el comportamiento
-histórico de "todo el catálogo" para el otro caller existente
-(`ModulesController.syncToTenant`, sin UI que lo use hoy). `tsc --noEmit` y
-`ng build`/`nest build` limpios.
-
-**Builder → pestaña Grid: columnas manuales para campos de un JOIN** (ver
-`docs/adr/005-grid-datasource-architecture.md`) — bug real encontrado: si el
-admin agregaba un JOIN en la pestaña SQL con columnas que no estaban en el
-formulario visual, no había forma de mostrarlas en la grid (la lista de
-columnas se armaba solo desde los campos del `d-builder`, y cualquier columna
-"suelta" se perdía en cada recarga de la pestaña). Ahora hay un formulario
-"+ Agregar columna" (clave + etiqueta + tipo) y esas columnas (`is_custom:
-true`) se conservan; son las únicas eliminables y con tipo editable desde la
-UI. Verificado por curl (`POST /admin/forms/producto/grid` con una columna
-`is_custom`, round-trip correcto); estado de prueba restaurado a los 9
-columnas originales de "producto". `ng build`/`tsc --noEmit` limpios. **Sin
-verificación visual en navegador** (Playwright no instalado).
-
-**`GridFormComponent`: columnas se estiran si sobra espacio** (ver
-`docs/adr/005-grid-datasource-architecture.md`) — el auto-size a contenido de
-la sesión anterior (`autoSizeAllColumns()`) dejaba un hueco vacío antes de
-"Acciones" cuando había pocas columnas visibles (ej. dejar solo 5 visibles en
-"producto"), porque auto-size ajusta al contenido pero no llena el ancho del
-grid. Ahora `fitColumnsIfNeeded()` (dispara en `modelUpdated` y
-`gridSizeChanged`) estira proporcionalmente con `sizeColumnsToFit()` solo
-cuando el total de columnas auto-ajustadas no alcanza el ancho real del
-grid — si ya lo supera (muchas columnas), no toca nada. "Acciones" tiene
-`minWidth`/`maxWidth` para no estirarse. **Sin verificación visual en
-navegador** (Playwright no instalado) — `ng build`/`tsc --noEmit` limpios.
-
-**Builder → pestaña SQL: precarga la consulta actual del formulario** (ver
-`docs/adr/005-grid-datasource-architecture.md`): si el form no tiene
-`grid_query` propio, el editor ya no aparece vacío — se precarga con
-`SELECT * FROM {schema}.{table} WHERE deleted_at IS NULL` (el equivalente a
-lo que usa hoy el SP/`selectPaged` por default), para que el admin parta de
-ahí y agregue joins/columnas calculadas. Guardar sin tocar ese texto NO fija
-un `grid_query` nuevo (se compara contra el sugerido en `onExport()`) — solo
-se persiste si el admin lo edita de verdad. Verificado por curl contra
-`public.forms.producto`: PATCH con query custom persiste y se puede limpiar
-de vuelta a `null`; estado de prueba restaurado. `ng build`/`tsc --noEmit`
-limpios.
-
-**`GridFormComponent`: ancho de columna automático** (ver
-`docs/adr/005-grid-datasource-architecture.md`, actualizado): antes cada
-columna usaba el ancho fijo configurado en el builder (o 150px por default),
-lo que cortaba nombres/contenido en columnas angostas y dejaba espacio vacío
-en columnas anchas con poco contenido. Ahora `onModelUpdated()` llama
-`gridApi.autoSizeAllColumns()` en cada cambio de filas renderizadas (carga
-inicial, página, sort, filtro, búsqueda) — el ancho se recalcula según el
-contenido real de cada página. `defaultColDef` en `FormDetailComponent` acota
-el resultado con `minWidth: 90`/`maxWidth: 420` para que una celda con texto
-muy largo (ej. una descripción) no estire su columna a costa de las demás.
-Sin verificación visual en navegador (Playwright no instalado en este
-entorno) — `ng build`/`tsc --noEmit` limpios.
-
-**Nombre de módulo distinto para catálogo (super admin) vs tenant** (ver
-`docs/adr/012-module-tenant-name.md`): columna nueva `public.modules
-.tenant_name` (nullable, `NULL` = usa `name`). `name` es el nombre que ve el
-super admin en su propio catálogo/sidebar (para distinguir variantes, ej.
-"Inventario Restaurantes" vs "Inventario Ferreterías" — mismo tipo de módulo,
-formularios distintos); `tenant_name` es el nombre "genérico" que recibe
-cualquier tenant al que se le asigne. `COALESCE(tenant_name, name)` aplicado
-en los dos caminos que copian el catálogo a un tenant: `create_tenant_schema()`
-(tenant nuevo) y `syncPublicModulesToTenant()` (tenant existente). Editable
-desde `admin/modules` (crear + pestaña "Editar módulo"), con subtítulo en la
-lista (`→ {tenant_name} en el tenant`) cuando difiere del nombre de catálogo.
-Verificado por curl end-to-end contra `tenant_demo` real (rename, sync,
-confirmar que el tenant NO recibió el nombre interno) y restaurado el estado
-de prueba. `ng build`/`tsc --noEmit` limpios en ambos proyectos.
-
-**`SettingsModulesComponent` (tenant, `/settings/modules`) a la par de
-`AdminModulesComponent`**: le faltaba la pestaña "Editar módulo" (nombre,
-descripción, ícono, orden en el sidebar, activo/inactivo) que sí tenía la
-versión de super admin — solo tenía un editor de ícono suelto fuera de las
-pestañas. Se reemplazó ese editor suelto por la misma pestaña "Editar módulo"
-que usa `AdminModulesComponent` (mismo layout, mismos campos), reusando
-`PATCH /modules/:id` (tenant) que ya existía pero no aceptaba `description` —
-se agregó al `UPDATE` de `ModulesService.updateTenantModule()` (la columna
-`{schema}.modules.description` ya existía en la tabla, solo faltaba en este
-UPDATE puntual; `getTenantModules()` ya la devolvía). Verificado por curl
-contra `tenant_demo` (`PATCH /modules/1` con `description` nueva, confirmado
-y restaurado al valor original). `ng build`/`tsc --noEmit` limpios en ambos
-proyectos.
-
-**Modo de visualización del registro configurable desde el builder** (ver
-`docs/adr/011-form-display-mode.md`): dos columnas nuevas en `{schema}.forms`
-(tenant y `public`) — `display_mode` (`'modal'` default | `'inline'`) y
-`modal_width` (px, nullable). Desde el panel avanzado del builder (aplica a
-formularios públicos y de tenant por igual, mismo lugar que el ícono) se
-elige si el registro abre en un modal (con ancho configurable) o "en la
-vista" (oculta la grid y muestra el form en su lugar, con un botón "← Volver
-a la grid"). `FormDetailComponent` lee estos campos del formulario cargado y
-decide el render; `modal_width` se aplica con `[style.max-width.px]` inline.
-
-Verificado por curl contra `public.forms.producto`: `PATCH` a `inline`,
-`GET` confirma persistencia, `PATCH` de vuelta a `modal` con `modalWidth:900`,
-valor inválido de `displayMode` rechazado con 400. Estado de prueba
-restaurado (`modal`, `modal_width: null`) al terminar. `ng build`/
-`tsc --noEmit` limpios en ambos proyectos. **Pendiente: verificación visual
-en navegador** (Playwright no está instalado en este entorno).
+- **Fix de raíz `recreateSp`** (ver `docs/known-bugs.md`): columna nueva
+  `recreate_sp BOOLEAN NOT NULL DEFAULT TRUE` en `{schema}.forms` (`public`,
+  template de tenant, migración `004_forms_recreate_sp.sql`).
+  `FormGeneratorService.processForm()` ahora usa el valor guardado como
+  default cuando el DTO no lo especifica explícito — antes, cualquier
+  `updatePublicForm()` sin `recreateSp:false` pisaba un SP a mano con el
+  genérico. **Bug agravante encontrado en el frontend**: el builder
+  (`BuilderComponent.resetAdvancedFields()`) reseteaba el toggle "Regenerar
+  SP" a `true` en cada carga y siempre lo mandaba explícito — corregido para
+  leer `form?.recreate_sp`. `venta_barrio`/`compra_barrio` (y todo SP a mano
+  nuevo de esta sesión) quedan con `recreate_sp=false` persistido.
+- **Descuento de precio en ventas** (monto o porcentaje, a nivel de
+  encabezado): columnas `subtotal`/`descuento_tipo`/`descuento_valor` +
+  `total` recalculado como neto. Aplicado a `venta_barrio` (ya existente,
+  SP regenerado a mano) y de fábrica en los 3 rubros nuevos.
+- **Producto (`producto_barrio`/`moda`/`ferreteria`) enriquecido**: `marca`,
+  `stock_minimo`, `ubicacion` (`ALTER TABLE` no destructivo). Datos de
+  ejemplo actualizados con valores reales.
+- **Ventas + Compras para Moda y Ferretería** (espejo exacto de
+  `venta_barrio`/`compra_barrio`, con descuento incluido desde el arranque):
+  `venta_moda`/`compra_moda`, `venta_ferreteria`/`compra_ferreteria`. Tabla +
+  detalle + SP a mano (`recreate_sp=false`) generados por
+  `createPublicForm()` + sustitución textual del DDL ya verificado de
+  barrio (`venta_barrio`→slug nuevo, `producto_barrio`→`producto_<rubro>`).
+  Módulos `VENTAS_MODA`/`COMPRAS_MODA`/`VENTAS_FERRETERIA`/`COMPRAS_FERRETERIA`
+  con `module_roles` (ADMIN+SALES full en ventas; ADMIN+WAREHOUSE full +
+  SALES solo ver en compras). Verificado insert/update/delete con stock
+  antes/después exacto en los 4 forms.
+- **Ventas para Belleza** (`venta_belleza`): variante sin stock — vende
+  `servicio_belleza` (sin columna `stock` en esa tabla), SP no toca
+  inventario pero sí calcula descuento igual que las demás. Sin módulo de
+  Compras para belleza (no aplica). Módulo `VENTAS_BELLEZA` (ADMIN+SALES).
+- **Sync a `tenant_demo`** (rubro `tienda_barrio`): completa Ventas+Compras
+  que faltaban. Encontrado y corregido en el camino: `tenant_demo.rubro_id`
+  estaba en `3` (ferretería) pese a tener el catálogo real de barrio
+  sincronizado — corregido a `1`. `venta_barrio`/`compra_barrio` dependen de
+  `tbl_empleados`/`tbl_sucursales` (FK), que el tenant no tenía — sincronizados
+  primero (`ensureFormsGenerated` no garantiza orden de dependencias entre
+  forms con `relation` cruzada, ver "Riesgos" abajo). SPs a mano regenerados
+  con el schema `tenant_demo` horneado (gotcha ya documentado). Sembrado con
+  datos reales (sucursal, empleado, 2 clientes, 2 productos) y verificado
+  insert de venta/compra con stock correcto.
+- **Sync a `tenant_acme`**: no tenía nada sincronizado pese a tener
+  `rubro_id` seteado — asignado rubro `moda` (2) y sincronizado el rubro
+  completo (Inventario+Ventas+Compras+Clientes+Proveedores+Empleados+
+  Sucursales+Categorías), mismo patrón de SPs a mano con schema `tenant_acme`
+  horneado. Sembrado y verificado con datos reales.
+- **Bug de raíz encontrado y corregido: `copyMissingFormsToTenant()` no
+  copiaba `display_mode`/`modal_width`** — un form sincronizado a un tenant
+  siempre quedaba en modal aunque en `public` estuviera en `inline`.
+  Corregido (columnas agregadas al `INSERT ... SELECT`) y backfileado a mano
+  en `tenant_demo`/`tenant_acme` para los forms ya sincronizados.
+- **Bug de raíz encontrado y corregido: `empleados.sucursal_id` sin FK
+  real** (`NUMERIC(12,2)` suelto, sin `relation` en el nodo oculto del
+  `json_form`) — mismo patrón que ya se había corregido para
+  `cita`/`venta_barrio` en una sesión anterior, pero nunca para `empleados`
+  mismo. Corregido en `public` + ambos tenants (`ALTER COLUMN TYPE BIGINT` +
+  `ADD CONSTRAINT` + `relation` agregada al `json_form`).
+- **Automatizado el orden de dependencias en el sync a tenant** (pedido
+  explícito del usuario tras el workaround manual de esta sesión): nuevo
+  `ModulesService.sortSlugsByDependencies()` — ordena topológicamente los
+  slugs a generar según los `relation` declarados en cada `json_form`
+  (campos ocultos de `input-lupa`, `select`+`relation`, columnas de
+  `line-items`), reutilizando `FormGeneratorService.extractFields()`/
+  `findLineItemsNode()` ya existentes. `ensureFormsGenerated()` ahora llama
+  esto antes de iterar — ya no depende de en qué orden Postgres devuelva
+  `SELECT DISTINCT form_slug`. Ciclos (no deberían poder pasar) se cortan
+  sin bloquear el resto en vez de tirar error. **Verificado con un tenant
+  descartable creado y borrado en esta sesión** (`tenant_scratch_topo`):
+  sincronizar los 7 módulos base en un orden a propósito "difícil"
+  (`venta_barrio`/`compra_barrio` antes que `empleados`/`sucursales`)
+  generó las 19 tablas con sus FKs reales sin ningún error ni intervención
+  manual — antes de este fix, esto mismo fallaba con `relation
+  "tbl_empleados" does not exist`. **Gotcha encontrado en el camino**: el
+  cambio de schema a `04_create_tenant.sql` (columna `recreate_sp`) no
+  alcanza con editar el archivo — la función `create_tenant_schema()` ya
+  vive en Postgres y hay que reaplicarla (`CREATE OR REPLACE FUNCTION`) para
+  que un tenant nuevo la reciba (mismo gotcha ya documentado en
+  `docs/known-bugs.md` para otras funciones). Ver ADR nuevo
+  `docs/adr/022-orden-dependencias-sync-tenant.md`.
+- **Filtro de producto por proveedor en Compras + resolución de FK en la
+  grid de Producto** (pedido explícito del usuario). Dos fixes de raíz:
+  - `RemoteFormOptionsService.loadOptions()` (Front) ignoraba por completo
+    el segundo parámetro (`_params`) — dforms ya soporta selects
+    dependientes vía `optionsParams` (confirmado en el `.d.ts` de la
+    librería: `LineItemColumnDef.optionsParams`, watch sobre un campo del
+    formulario), pero nunca se conectaba con nada real. Ahora arma un
+    `filter.filters` (`equals`) y lo manda al `execute()` existente —
+    `FormExecutorService.selectPaged()` ya soportaba filtrar por columna
+    validada contra `information_schema`, no hizo falta tocar el backend.
+    Agregado `optionsParams: [{ field: 'proveedor_id', ... required: true }]`
+    a la columna `producto_id` de `compra_barrio`/`compra_moda`/
+    `compra_ferreteria` (`public` + `tenant_demo`/`tenant_acme` ya
+    sincronizados) — elegir un proveedor ahora bloquea el select de
+    producto hasta elegirlo, y solo lista productos de ese proveedor.
+  - `producto_barrio`/`moda`/`ferreteria`: la columna "Proveedor" de la
+    grid mostraba el id crudo (o nada) porque no había `grid_query` con
+    JOIN — mismo patrón ya usado en `venta_barrio` (ADR-005/019), aplicado
+    acá: `grid_query` con `LEFT JOIN proveedores`+`tarifas_iva`,
+    `grid_config` con `proveedor_nombre`/`iva_nombre` en vez de los ids
+    crudos.
+  - **Bug propio encontrado en el camino**: al copiar el `grid_query` de
+    `public` a `tenant_demo` sin adaptarlo, quedó con el schema `public.`
+    horneado en vez de `tenant_demo.` — mismo gotcha ya documentado para
+    SPs a mano (`docs/known-bugs.md`), esta vez en un `grid_query`.
+    Corregido a mano con el schema correcto.
+  - `tenant_demo` no tenía `tarifas_iva` sincronizado (predata esa
+    característica) — sincronizado + sembrado (4 tarifas), y
+    `producto_barrio`/`compra_barrio` de `tenant_demo` actualizados a la
+    definición pública actual (tenían proveedor_id pero no `grid_query` ni
+    `optionsParams`). Sembrado un 2º proveedor + productos reales para
+    poder demostrar el filtro con dos proveedores distintos.
+  - Verificado en el navegador real (`tenant_demo`): grid de Productos
+    resuelve "tatiana"/"Comercializadora Andina" en vez de ids; formulario
+    de Compra con proveedor elegido por `input-lupa` y el select de
+    producto filtrado (confirmado "Arroz Diana" listado al elegir
+    "tatiana"). Verificado también a nivel de API el caso general (mismo
+    proveedor → mismo subconjunto de productos, deterministico) en
+    `public` y ambos tenants.
+- **Reordenamiento del sidebar del super admin por rubro** (pedido
+  explícito: "ya hay muchas cosas regadas" — con los 4 rubros completos,
+  el sidebar admin tenía 16 grupos sueltos de primer nivel). Nuevo nivel
+  de agrupación **solo en `adminNavItems`** (rubro → módulo → form, 3
+  niveles): `ModulesService.getPublicModulesForMenu()` ahora expone
+  `rubro_id`/`rubro_code`/`rubro_nombre` por módulo (JOIN a `tbl_rubro`);
+  el sidebar agrupa en `Tienda de Barrio`/`Moda`/`Ferretería`/`Barbería /
+  Salón de Belleza` + `Catálogo` (universales: Clientes/Proveedores/
+  Empleados/Sucursales) + `Administración` (sin cambios). `NavChild` ahora
+  admite un nivel extra de `children` propio, con su propio estado de
+  expansión (`openSubGroup`) — el sidebar de tenant (`tenantNavItems`)
+  queda sin cambios funcionales (un tenant real solo tiene un rubro).
+  Ver ADR-023. Verificado en el navegador real contra el super admin:
+  pasó de 16 grupos sueltos a 7, los 3 niveles expanden/colapsan
+  correctamente y cambiar de rubro resetea el sub-grupo abierto.
+  `tsc --noEmit`/`nest build` (Back) y `tsc --noEmit`/`ng build` (Front)
+  limpios.
+- **Verificación visual con Playwright** (Chromium instalado por primera vez
+  en este entorno): login real en `demo.localhost` (`admin@demo.com`),
+  confirmado en el navegador real — sidebar dinámico con los módulos nuevos
+  (Ventas/Compras/Empleados/Sucursales), `venta_barrio` abre **inline** (sin
+  modal, confirma el fix de `display_mode`), formulario de venta muestra
+  `input-lupa` para Cliente/Vendedor/Sucursal y los campos de Descuento,
+  `compra_barrio` abre en modal con Proveedor (`input-lupa`) y line-items.
+  `producto_barrio` en `tenant_demo` NO muestra `marca`/`ubicacion` — **es lo
+  esperado**, esa copia es anterior a la Fase B de esta sesión y el sync es
+  copy-if-missing (nunca pisa un form ya sincronizado); confirmado en
+  cambio que `tenant_acme.producto_moda` (sincronizado después del fix) sí
+  las trae. **Sin verificar el lado super admin** (no tengo la contraseña,
+  solo el usuario la conoce).
+- `tsc --noEmit`/`nest build` (Back) y `tsc --noEmit` (Front) limpios en
+  cada fase. Sin commit — el usuario aplica/commitea él mismo.
 
 ## Estado actual
 
 **Entorno de desarrollo:**
-- Backend: `Back/api`, `pnpm start` (`nest start --watch`), puerto 3000.
-- Frontend: `Front`, `ng serve`, puerto 4200.
+- Backend: `Back/api`, `nest start --watch` corriendo, puerto 3000.
+- Frontend: `Front`, `ng serve` corriendo, puerto 4200.
 - DB: `docker exec -it saas_postgres psql -U saas_user -d saas_inventario`.
-- Redis provisionado en `docker-compose.yml` pero sin cliente en el backend —
-  ver "Riesgos".
+- Playwright (`chromium`) instalado en este entorno vía `npx playwright
+  install chromium` — antes no estaba, ahora sí se puede verificar visual.
 
-**Catálogo público** (`public.forms`/`public.modules`): ejecutable como un
-tenant más desde el super admin (ver `docs/adr/009-...md`). Tras el reset de
-esta sesión, tiene el primer rubro real: `INVENTARIO_BARRIO`/`CLIENTES`/
-`PROVEEDORES` (ver "Último trabajo realizado" y
-`docs/adr/013-catalogo-modulos-multi-vertical.md`). Los otros 3 rubros
-(moda, ferretería, barbería/salón) están diseñados en el ADR pero **no**
-creados todavía. `tenant_demo` ya tiene ese catálogo sincronizado y con
-tablas/SPs propios generados; `tenant_acme` sigue vacío. Grid con búsqueda
-general + paginación real (`docs/adr/005-...md`); todo `SELECT` sin `limit`
-explícito pagina a 25 por default.
+**Catálogo público** (`public.forms`/`public.modules`): los 4 rubros tienen
+ahora el ciclo completo — Inventario + Ventas + Compras (Belleza sin
+Compras, no aplica) + Clientes/Proveedores/Empleados/Sucursales/Categorías/
+Unidades/Tarifas IVA (universales). Todo con descuento de precio en ventas.
+Organizados en el sidebar admin vía jerarquía real (`parent_id`, ver
+ADR-024): 5 módulos contenedor (`RUBRO_TIENDA_BARRIO`/`RUBRO_MODA`/
+`RUBRO_FERRETERIA`/`RUBRO_BELLEZA`/`CATALOGO`) con los 16 módulos de
+negocio anidados adentro.
 
-**Tenants reales:** `acme` (`tenant_acme`) y `demo` (`tenant_demo`), ambos
-`status='trial'`. Usuario de prueba `demo`: `admin@demo.com` / `password`.
-Super admin real: `jcabarcasjulio@gmail.com` (contraseña la conoce el usuario
-— cambiable desde `admin.localhost:4200/admin/settings/security`, nunca por
-`UPDATE` directo a la DB).
+**Tenants reales:**
+- `tenant_demo` (rubro `tienda_barrio`, corregido de un `rubro_id` erróneo):
+  Inventario+Clientes+Proveedores+Categorías+Unidades ya sincronizados de
+  antes; esta sesión completó Ventas+Compras+Empleados+Sucursales. Usuario
+  de prueba: `admin@demo.com` / `password`.
+- `tenant_acme` (rubro `moda`, asignado esta sesión — antes vacío pese a
+  tener un `rubro_id` seteado sin sincronizar nada): catálogo completo del
+  rubro sincronizado esta sesión. Tiene un usuario `admin@acme.com` pero
+  **no tengo su contraseña** — sin verificar visualmente.
 
-**Estilos de UI**: patrones reutilizados (`.btn`, `.modal`/`.backdrop`, `.pg`,
-`.card`, `.field`, `.grid`, `.badge`, `.tbl`) centralizados en
-`styles/components/` (ver `docs/adr/010-shared-component-styles.md`) — no
-duplicar estos bloques en un componente nuevo.
-
-**Diseño visual:** proyecto en Stitch (herramienta externa, fuera de este
-repo) *"Sistema Inventario SaaS — Actual + Visión"* (ID `3501211172838871095`)
-— 15 pantallas de alta fidelidad, sigue vivo si se quiere iterar.
-
-**Hay repositorio git** (el usuario commitea directamente durante la sesión,
-sin pasar por Claude — no asumir que "sin commit" significa "sin guardar").
-`CLAUDE.md` tenía una nota vieja de "no hay repositorio git" que ya no aplica
-y fue corregida esta sesión.
+**Super admin real:** `jcabarcasjulio@gmail.com` (contraseña la conoce el
+usuario, no la tengo yo — sin verificar visualmente el lado admin esta
+sesión).
 
 ## Bugs abiertos
 
-- El bug de `image VARCHAR(500)` (ver `docs/adr/006-image-field-storage.md`)
-  ya no tiene tablas afectadas vivas — el reset de esta sesión dropeó todas
-  las `tbl_*` generadas antes del fix. Vigilar si reaparece en tablas nuevas
-  (no debería: `FormGeneratorService.toDbType()` ya usa `TEXT` para `image`).
 - `public.module_forms` no tiene la misma constraint única
   `UNIQUE(module_id, form_slug)` que ya tienen los schemas de tenant — riesgo
-  bajo hoy (`setPublicModuleForms` siempre hace DELETE+INSERT), pero
-  inconsistente si se agrega otro camino de escritura a esa tabla.
+  bajo hoy (`setPublicModuleForms` siempre hace DELETE+INSERT).
 - Huecos conocidos de `docs/adr/008-form-catalog-access-control.md`: sin poda
   retroactiva de asignaciones ya hechas, sin gate de runtime sobre datos ya
   asignados, `syncPublicModulesToTenant()` no pasa por el gate de acceso.
-- `{schema}.module_forms.form_slug` sigue sin FK hacia `forms.slug` — pero
-  desde esta sesión `FormGeneratorService.deleteForm()` limpia `module_forms`
-  del slug borrado dentro de la misma transacción, así que el camino normal
-  (borrar desde el builder) ya no deja huérfanos. Solo puede recurrir si algo
-  borra `{schema}.forms` a mano por SQL. Ver `docs/known-bugs.md`.
+- `{schema}.module_forms.form_slug` sigue sin FK hacia `forms.slug` — mitigado
+  para el camino normal (`deleteForm()` limpia dentro de la misma
+  transacción), solo puede recurrir si algo borra `{schema}.forms` a mano.
 - La búsqueda general de la grid (`filter.search`) incluye columnas `image`
-  (TEXT/base64) en el `OR ILIKE` — correcto pero innecesariamente costoso
-  contra un campo que nunca va a matchear un término de búsqueda real. No
-  resuelto: `selectPaged()` no tiene acceso al `json_form` del formulario
-  para saber qué columna TEXT es en realidad una imagen.
+  (TEXT/base64) en el `OR ILIKE` — correcto pero innecesariamente costoso.
+- `producto_barrio`/`clientes`/`proveedores`/etc. ya sincronizados a un
+  tenant **antes** de un enriquecimiento posterior en `public` (ej. Fase B
+  de esta sesión: `marca`/`stock_minimo`/`ubicacion`) no reciben esos campos
+  nuevos automáticamente — el sync es copy-if-missing por diseño. Si se
+  quiere backfillear un tenant ya sincronizado, hay que actualizar su copia
+  a mano (mismo criterio que se usó esta sesión para `display_mode`).
 
 ## Riesgos
 
@@ -707,55 +324,27 @@ y fue corregida esta sesión.
   completo, ningún endpoint ni componente los usa.
 - `public.modules`/`module_forms`/`module_roles` no tienen script de creación
   documentado en `Back/database/` (drift preexistente).
+- ~~`ensureFormsGenerated()` no garantiza el orden de dependencias entre
+  forms con `relation` cruzada~~ — **resuelto**: `sortSlugsByDependencies()`
+  hace un topological sort real antes de procesar. Ver "Último trabajo".
 
 ## Próximas prioridades
 
-0. **Fases 2-3 del gap de modelo de dominio — HECHAS** (ver
-   `docs/plan-ventas-agenda.md` sección 3 y ADR-019): `cita`/`venta_barrio`
-   con relaciones reales vía `input-lupa`, módulo Compras (`compra_barrio`)
-   nuevo. **Pendiente real**: el diff de código de esta sesión (6 archivos,
-   ver "Nota de proceso" arriba) todavía no está aplicado al checkout real
-   del usuario — sin eso, reprocesar `cita`/`venta_barrio`/`compra_barrio`
-   desde el builder (UI) fallaría (el motor en el checkout real no conoce
-   `persistDisplay:false` todavía, aunque los datos ya están bien en la DB).
-   Enriquecer `producto_*` (proveedor vía lupa, marca, stock mínimo) queda
-   sin hacer. Nada de esto sincronizado a tenant todavía — sigue en el
-   catálogo `public`.
-1. `tenant_acme` sigue sin `rubro_id` (`demo` ya se le asignó
-   `tienda_barrio` esta sesión) — decidir si acme necesita uno cuando se le
-   sincronice algo.
-2. Catálogo público completo de los 4 rubros (moda, ferretería, barbería/
-   salón, tienda de barrio) — falta sincronizar cada uno hacia el tenant
-   real que corresponda cuando exista (hoy solo `tienda de barrio` está
-   sincronizado, a `tenant_demo`).
-3. Ventas: replicar `venta_barrio` (ya implementado y verificado, ver
-   `docs/adr/017-tabla-detalle-line-items.md`) a `venta_moda`/
-   `venta_ferreteria`/`venta_belleza` — mismo patrón, mecánico. Sincronizar
-   `venta_barrio` a un tenant real requiere regenerar el SP con el schema
-   de ese tenant (no un simple `copyMissingFormsToTenant`, ver ADR-017).
-   Agenda de citas ya tiene su primera versión (CRUD simple) — pendiente:
-   vista de calendario visual y validación de doble-reserva, ninguna
-   bloqueante.
-4. Verificación visual en navegador de todo lo agregado recientemente:
-   catálogo de Rubros/Categorías/Unidades con selects dinámicos, selector de
-   rubro al crear tenant, eliminar formulario desde el builder, modal de
-   selección de módulos al sincronizar, ofuscación de code/slug en la URL,
-   sidebar admin dinámico, builder en modo público, `/admin/modules`, modal
-   "Nuevo tenant", buscador + paginación de la grid, modo de visualización
-   modal/inline + ancho custom.
-5. ~~Decidir `docker-compose.prod.yml`~~ — **resuelto**: Dockerfiles +
-   compose creados y build-verificados con Docker real (ver "Último
-   trabajo realizado"). Pendiente antes de un deploy real: dominio de
-   producción, estrategia de TLS, decidir Postgres auto-hospedado vs.
-   administrado — y confirmar el arranque en caliente en una máquina/CI
-   real (no se pudo verificar en este sandbox).
-6. ~~Decidir sobre Redis~~ — **resuelto**: removido, cero consumidores.
-7. Fase futura ya acordada con el usuario: vista para migrar los *datos*
-   (tabla + filas) de un formulario probado en `public` hacia un tenant real
-   elegido.
-8. DIAN: la lista de `tipo_documento` es deliberadamente incompleta frente
-   a la taxonomía oficial (ver ADR-018) — ampliarla si se necesita el
-   catálogo completo. Perfil del emisor (NIT/razón social/resolución de
-   facturación del propio tenant) y código UNSPSC del producto quedan
-   fuera de alcance hasta encarar la integración real de facturación
-   electrónica.
+1. **Coordinar con el usuario (autor de `dforms`) los 2 cambios de
+   librería** spec'd en `prompt-dforms.md` (scratchpad de esta sesión, no
+   versionado acá): búsqueda remota real en `input-lupa` (`searchParamName`)
+   y soporte de `'input-lupa'` como tipo de columna de `line-items`
+   (producto/servicio en ventas/compras). El lado de `Sistema_inventario`
+   ya está listo para consumirlo en cuanto se publique (`RemoteFormOptionsService`
+   maneja `search`, backend ya soporta la búsqueda por texto).
+2. Sincronizar Ferretería/Belleza a un tenant real cuando exista uno de ese
+   rubro (el catálogo público ya está completo para los 4).
+3. Agenda de citas: sigue con CRUD simple — falta vista de calendario visual
+   (dforms no tiene ese componente todavía) y validación de doble-reserva.
+4. Deploy a producción: dominio (`CORS_DOMAIN`/`apiBaseUrl` con placeholders
+   todavía), estrategia de TLS, decidir Postgres auto-hospedado vs.
+   administrado, confirmar arranque en caliente en máquina/CI real
+   (Dockerfiles + compose ya están armados y build-verificados).
+5. DIAN: perfil del emisor (NIT/razón social/resolución de facturación) y
+   código UNSPSC del producto quedan fuera de alcance hasta encarar la
+   integración real de facturación electrónica (ver ADR-018).

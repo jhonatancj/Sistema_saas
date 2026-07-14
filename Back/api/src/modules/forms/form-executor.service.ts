@@ -44,7 +44,7 @@ export class FormExecutorService {
       : (await this.formAccess.resolveAssignability(schema)).isAllowed;
     const result = await this.pool.query(
       `SELECT id, slug, name, has_table, has_sp, table_name, sp_name, grid_query, icon,
-              display_mode, modal_width, created_at
+              display_mode, modal_width, recreate_sp, created_at
        FROM ${schema}.forms WHERE deleted_at IS NULL ORDER BY created_at DESC`,
     );
     return result.rows.filter((row) => isAllowed(row.slug));
@@ -53,7 +53,7 @@ export class FormExecutorService {
   async getForm(schema: string, slug: string) {
     const result = await this.pool.query(
       `SELECT id, slug, name, action, json_form, has_table, has_sp, table_name, sp_name, grid_query, icon,
-              display_mode, modal_width, created_at
+              display_mode, modal_width, recreate_sp, created_at
        FROM ${schema}.forms WHERE slug = $1 AND deleted_at IS NULL`,
       [slug],
     );
